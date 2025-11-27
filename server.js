@@ -22,13 +22,15 @@ app.use(express.json());
 app.use(cookieparser());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS
+// CORS CONFIG
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
       "https://admin-frontend-pgmega.vercel.app",
+      "https://www.roomgi.com", // add your domain
+      "https://roomgi.com",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -36,7 +38,8 @@ app.use(
   })
 );
 
-app.options("/.*", cors());
+// Handle preflight requests
+app.options("*", cors());  // ✅ FIXED
 
 // Routes
 app.use("/api/v1/user", userRouter);
