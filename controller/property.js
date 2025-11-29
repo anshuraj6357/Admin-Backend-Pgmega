@@ -59,75 +59,132 @@ exports.CreateProperty = async (req, res) => {
 
     }
 }
+const axios = require("axios");
+
 exports.AddBranch = async (req, res) => {
+  console.log(req.body);
 
-    try {
+  try {
+    const userId = req.user._id;
+    const imageFiles = req.files || [];
+    const uploadimages = [];
 
-        console.log(req.body)
-        const userId = req.user._id;
-        const imageFiles = req.files;
-        console.log(imageFiles)
-        const uploadimages = [];
-
-
-
-
-
-
-        const foundproperty = await Signup.findById(userId)
-        if (!foundproperty) {
-            return res.status(400).json({
-                success: false,
-                message: "NOt Found The Property"
-            })
-        }
-
-        const { address,
-            city,
-            state,
-            pincode,
-            name,
-        } = req.body;
-        if (
-            !address ||
-            !city ||
-            !state ||
-            !pincode ||
-            !name) {
-            return res.status(400).json({
-                success: "false",
-                message: "Not Filled All The Details"
-            })
-        }
-        for (let file of imageFiles) {
-            const UploadResponce = await Uploadmedia.Uploadmedia(file.path);
-            uploadimages.push(UploadResponce.secure_url);
-        }
-
-        const CreatedBranch = await PropertyBranch.create({
-            city,
-            name,
-            address,
-            state,
-            pincode,
-            owner: req.user._id,
-            property: foundproperty._id,
-            Propertyphoto: uploadimages
-        })
-        console.log(CreatedBranch)
-        return res.status(200).json({
-            success: true,
-            message: "Branch Created SuccessFully",
-            CreatedBranch
-        })
-    } catch (error) {
-        console.log(error)
-        res.status(500).json({
-            success: false,
-            mesage: "error"
-        })
+    const foundproperty = await Signup.findById(userId);
+    if (!foundproperty) {
+      return res.status(400).json({
+        success: false,
+        message: "Property not found",
+      });
     }
-}
+
+    const {
+      address,
+      city,
+      state,
+      pincode,
+      name,
+      streetAdress,
+      landmark,
+    } = req.body;
+
+    if (!address || !city || !state || !pincode || !streetAdress || !landmark || !name) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields",
+      });
+    }
+
+    // ----------------------------
+    // Upload Images
+    // ----------------------------
+    for (let file of imageFiles) {
+      const uploadRes = await Uploadmedia.Uploadmedia(file.path);
+      uploadimages.push(uploadRes.secure_url);
+    }
+
+    // ----------------------------
+    // Combine full address to geocode
+    // ----------------------------
+    const fullAddress = `${streetAdress}, ${landmark}, ${address}, ${city}, ${state}, ${pincode}`;
+
+    console.log("FULL ADDRESS:", fullAddress);
+
+    // ----------------------------
+    // Fetch Coordinates using Google API
+    // ----------------------------
+    const geo = await axios.get(
+      `https://maps.googleapis.com/maps/api/geocode/json`,
+      {
+        params: {
+          address: fullAddress,
+          key: "AIzaSyBI_1GjWzjhnK--jH94wVq3dmdOGm6sUos",
+        },
+      }
+    );
+
+    const geoData = geo.data;
+
+    let lat = null;
+    let lng = null;
+
+    if (geoData.status === "OK" && geoData.results.length > 0) {
+      lat = geoData.results[0].geometry.location.lat;
+      lng = geoData.results[0].geometry.location.lng;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Unable to fetch latitude and longitude for given address",
+        google_response: geoData.status,
+      });
+    }
+
+    console.log("Coordinates:", lat, lng);
+
+    // ----------------------------
+    // Create branch in database
+    // ----------------------------
+    const CreatedBranch = await PropertyBranch.create({
+      city,
+      name,
+      address,
+      state,
+      pincode,
+      streetAdress,
+      landmark,
+
+      owner: req.user._id,
+      property: foundproperty._id,
+
+      Propertyphoto: uploadimages,
+
+      // GeoJSON location
+      location: {
+        type: "Point",
+        coordinates: [lng, lat], // IMPORTANT: MongoDB format is [long, lat]
+      },
+
+      lat: lat,
+      long: lng,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Branch created successfully",
+      CreatedBranch,
+    });
+
+  } catch (error) {
+    console.log("ERROR in AddBranch:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
+
 exports.GetAllBranch = async (req, res) => {
 
     try {
@@ -159,6 +216,57 @@ exports.GetAllBranch = async (req, res) => {
 
     }
 }
+
+// Example API endpoint
+exports.getAllBranchesWithLocation = async (req, res) => {
+  try {
+    const {branchId} = req.params;
+
+    const branch = await PropertyBranch.findById(branchId)
+      .populate("rooms") // if rooms are separate model (optional)
+      .lean();
+
+    if (!branch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found",
+      });
+    }
+
+    // Extract main branch location
+    const branchLocation = branch.location && branch.location.coordinates
+      ? { lat: branch.location.coordinates[1], lng: branch.location.coordinates[0] }
+      : (branch.lat && branch.long ? { lat: branch.lat, lng: branch.long } : null);
+
+    return res.json({
+      success: true,
+      branch: {
+        _id: branch._id,
+        name: branch.name,
+        address: branch.address,
+        city: branch.city,
+        state: branch.state,
+        pincode: branch.pincode,
+        location: branchLocation,
+        rooms: branch.rooms, // All rooms of this branch
+      }
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+
+
+
+
+
+
 exports.GetAllBranchOwner = async (req, res) => {
 
     try {
@@ -521,35 +629,35 @@ exports.AllRooms = async (req, res) => {
 
     }
 }
-exports.getdetails = async (req, res) => {
+// exports.getdetails = async (req, res) => {
 
-    try {
-        console.log("hii   this is getDetails eroro ")
-        const id = req.params.id;
+//     try {
+//         console.log("hii   this is getDetails eroro ")
+//         const id = req.params.id;
 
-        const roomdetails = await PropertyBranch.findOne({ "rooms._id": id })
-        if (!roomdetails) {
-            return res.status(400).json({
-                success: false,
-                message: "No Rooms With This Id "
-            })
-        }
-        const room = roomdetails.rooms.id(id);
-        return res.status(200).json({
-            success: true,
-            message: "Rooms details fetched succssfully",
-            room
-        })
+//         const roomdetails = await PropertyBranch.findOne({ "rooms._id": id })
+//         if (!roomdetails) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "No Rooms With This Id "
+//             })
+//         }
+//         const room = roomdetails.rooms.id(id);
+//         return res.status(200).json({
+//             success: true,
+//             message: "Rooms details fetched succssfully",
+//             room
+//         })
 
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
-        });
-    }
-};
+//     } catch (error) {
+//         console.log(error);
+//         res.status(500).json({
+//             success: false,
+//             message: "Internal server error",
+//             error: error.message,
+//         });
+//     }
+// };
 
 
 exports.AppliedAllFilters = async (req, res) => {
@@ -769,13 +877,19 @@ exports.AppliedFilters = async (req, res) => {
         });
     }
 };
-exports.GetRoomById = async (req, res) => {
+exports.getdetails = async (req, res) => {
     try {
 
 
-        const { Id } = req.params;
+        const { id } = req.params;
 
-        const foundBranch = await PropertyBranch.findOne({ "rooms._id": Id })
+        const foundBranch = await PropertyBranch.findOne({ "rooms._id": id })
+            .populate({
+                path: "rooms.branch",
+                model: "PropertyBranch",
+                select: "-rooms -__v -createdAt -updatedAt"
+            })
+            .exec();
         if (!foundBranch) {
             return res.status(400).json({
                 succes: false,
@@ -783,10 +897,12 @@ exports.GetRoomById = async (req, res) => {
             })
         }
 
+        console.log(foundBranch)
 
 
 
-        const room = foundBranch.rooms.id(Id);
+
+        const room = foundBranch.rooms.id(id);
 
         if (!room) {
             return res.status(404).json({ message: "Room not found" });
@@ -799,7 +915,7 @@ exports.GetRoomById = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Room Updated Successfully",
-            data: room
+            room
         });
 
     } catch (error) {
@@ -911,17 +1027,23 @@ exports.UpdateRoom = async (req, res) => {
 };
 exports.getAllPg = async (req, res) => {
     try {
-        const branches = await PropertyBranch.find({}, "rooms");
-        console.log("Rooms", branches)
-        const allrooms = branches.flatMap(branch => branch.rooms)
+        const branches = await PropertyBranch.find({}, null, { strictPopulate: false })
+            .populate({
+                path: "rooms.branch",
+                model: "PropertyBranch",
+                select: "-rooms -__v -createdAt -updatedAt"  // ⬅ REMOVE heavy fields
+            })
+            .exec();
+
+        const allrooms = branches.flatMap(branch => branch.rooms);
 
         return res.status(200).json({
             success: true,
-            message: "ot All the PgbSuccessfully ",
+            message: "Got all PG successfully",
             foundBranch: allrooms,
         });
-    }
-    catch (error) {
+
+    } catch (error) {
         console.log(error);
         res.status(500).json({
             success: false,

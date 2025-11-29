@@ -71,6 +71,7 @@ exports.IsOwner = async (req, res, next) => {
 
     try {
         const role=req.user.role;
+        console.log(req.user)
         if(role!="owner"){
             return res.status(400).json({
                 success:false,

@@ -7,7 +7,7 @@ const SignupSchema = new mongoose.Schema({
   },
   role:{
     type:String,
-    enum:["owner","branch-manager","tenant"],
+    enum:["owner","branch-manager","tenant","user"],
     required:true
   },
   username: {
