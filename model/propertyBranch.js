@@ -68,81 +68,48 @@ const RoomSchema = new mongoose.Schema({
 
 
 const propertyBranchSchema = new mongoose.Schema({
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: "Signup", required: true },
+  branchmanager: { type: mongoose.Schema.Types.ObjectId, ref: "branchmanager" },
+  name: { type: String },
+  Rating: { type: Number, default: 0 },
+  address: { type: String, required: true },
+  city: { type: String },
+  streetAdress: { type: String },
+  landmark: { type: String },
+  state: { type: String },
+  pincode: { type: Number },
+  // GeoJSON location (recommended)
+  location: {
+    type: {
+      type: String,
+      enum: ["Point"],
+      default: "Point",
+    },
+    coordinates: {
+      type: [Number], // [lng, lat]
+    },
+  },
+  // optional flat fields (if you still want them)
+  lat: { type: Number },
+  long: { type: Number },
 
-    owner: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Signup",
-        required: true
-    },
-    branchmanager: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "branchmanager",
-    },
-    occupiedRoom: [{
-        type:Number,
-    }],
-    name: {
-        type: String
-
-    },
-    Rating: {
-        type: Number,
-        default: 0
-    },
-
-    address: {
-        type: String,
-        required: true,
-    },
-    city: {
-        type: String
-    },
-    state: {
-        type: String,
-    },
-    pincode: {
-        type: Number,
-    },
-    totalBeds: {
-        type: Number,
-        default: 0,
-    },
-    facilities: {
-        type: [String]
-    },
-    roomNumbers: {
-        type: [Number],
-        required: true,
-    },
-
-    advanced: {
-        type: Number,
-        default: 0
-    },
-    dues: {
-        type: Number,
-        default: 0
-    },
-
-    rent: {
-        type: Number,
-        default: 0
-    },
-
-    rooms: [
-        RoomSchema
-    ],
-
-
-
-    status: {
-        enum: ["Active", "InActive", "maintenance", "coming-Soon"],
-        type: String,
-        default: "Active"
-    },
-    Propertyphoto: {
-        type: [String]
-    },
+  totalBeds: { type: Number, default: 0 },
+  facilities: { type: [String] },
+  roomNumbers: { type: [Number], required: true },
+  advanced: { type: Number, default: 0 },
+  dues: { type: Number, default: 0 },
+  rent: { type: Number, default: 0 },
+  rooms: [RoomSchema],
+  status: {
+    enum: ["Active", "InActive", "maintenance", "coming-Soon"],
+    type: String,
+    default: "Active",
+  },
+  Propertyphoto: { type: [String] },
 }, { timestamps: true });
 
+// Create geospatial index
+propertyBranchSchema.index({ location: "2dsphere" });
+
+module.exports = mongoose.model("PropertyBranch", propertyBranchSchema);
 module.exports = mongoose.model("PropertyBranch", propertyBranchSchema);

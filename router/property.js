@@ -7,8 +7,9 @@ const upload = multer({ storage: multer.diskStorage({}) });
 
 const {
     GetAllBranchOwner, AddBranch, EditBranch, getAllPg,
-    AppliedFilters,AppliedAllFilters,DeleteRoom,
-    UpdateRoom,AllRooms,GetRoomById,
+    getAllBranchesWithLocation,
+    AppliedFilters, AppliedAllFilters, DeleteRoom,
+    UpdateRoom, AllRooms, GetRoomById,
     DeleteBranch, DeleteProperty, GetAllBranch,
     AddRoom, addhotelroom, getdetails,
     appointBranchManager, GetAllBranchByBranchId
@@ -19,7 +20,7 @@ console.log("hii")
 
 //  router.post("/create",Validate, CreateProperty);
 router.get("/get", Validate, GetAllBranch)
-router.get("/getroombyid/:Id", Validate, GetRoomById)
+router.get("/location/:branchId", getAllBranchesWithLocation)
 router.get("/getalllbranchowner", Validate, GetAllBranchOwner)
 router.get("/allrooms", Validate, AllRooms)
 router.delete("/deleteroom/:id", Validate, DeleteRoom)
@@ -28,8 +29,8 @@ router.post("/appliedallfilter", Validate, AppliedAllFilters)
 router.get("/filtered/:cityFromQuery", Validate, AppliedFilters)
 router.post(
     "/addroom", Validate,
-    upload.fields([{ name: "images", maxCount: 10 }]),  // multer first
-    AddRoom                                               // then controller
+    upload.fields([{ name: "images", maxCount: 10 }]),
+    AddRoom
 );
 
 router.get("/get/:id", getdetails)
@@ -41,7 +42,7 @@ router.post("/addhotelroom"
     upload.fields([{ name: "images", maxCount: 10 }]),
     addhotelroom)
 router.get("/getbranch/bybranchMnager", Validate, GetAllBranchByBranchId)
-router.post("/add", Validate,upload.array("images"), AddBranch);
+router.post("/add", Validate, upload.array("images"), AddBranch);
 router.post("/createbranchmanager/:id", Validate, IsOwner, appointBranchManager)
 router.patch("/edit/:branchId", Validate, EditBranch)
 router.delete("/DeleteBranch", Validate, DeleteBranch)

@@ -10,7 +10,7 @@ const { Uploadmedia, deletemedia } = require("../utils/cloudinary")
 const signupcontroller = async (req, res) => {
     console.log("req.body", req.body)
     try {
-        const { email, username, password,role } = req.body;
+        const { email, username, password, role } = req.body;
         if (!email || !username || !password) {
             return res.status(400).json({
                 success: false,
@@ -47,7 +47,7 @@ const signupcontroller = async (req, res) => {
             password: hashedpassword,
             role
         })
-        console.log(User)
+        console.log("User", User)
 
         return res.status(200).json({
             success: true,
@@ -72,11 +72,11 @@ const signupcontroller = async (req, res) => {
 
 const Logincontroller = async (req, res) => {
     console.log("req.body", req.body)
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     try {
 
-        if (!email || !password) {
+        if (!email || !password || !role) {
             return res.status(400).json({
                 success: false,
                 message: "please filled all the data carefully"
@@ -101,7 +101,7 @@ const Logincontroller = async (req, res) => {
 
 
 
-        
+
 
 
 
@@ -114,12 +114,19 @@ const Logincontroller = async (req, res) => {
             })
         }
 
+        if (role !== existingUser.role) {
+            return res.status(400).json({
+                success: false,
+                message: "Your role is Not valid",
+            })
+        }
+
 
         const payload = {
             id: existingUser._id,
             name: existingUser.username,
             email: existingUser.email,
-            role:existingUser.role,
+            role: existingUser.role,
         };
 
         const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, {
@@ -193,7 +200,7 @@ const GetUserProfile = async (req, res) => {
         const userid = req.user.id;
 
         const profile = await Signup.findById(userid)
-   
+
 
         if (!profile) {
             return res.status(404).json({
@@ -314,4 +321,4 @@ const checkmail = async (req, res) => {
 
     }
 }
-module.exports = { signupcontroller,GetUserProfile, Logincontroller, Logoutcontroller, forgotUser, checkmail };
+module.exports = { signupcontroller, GetUserProfile, Logincontroller, Logoutcontroller, forgotUser, checkmail };
