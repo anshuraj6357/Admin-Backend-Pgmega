@@ -32,7 +32,7 @@ router.post(
     AddRoom                                               // then controller
 );
 
-router.get("/get/:id", Validate, getdetails)
+router.get("/get/:id", getdetails)
 
 
 
