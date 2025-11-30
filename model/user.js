@@ -5,11 +5,15 @@ const SignupSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  role:{
-    type:String,
-    enum:["owner","branch-manager","tenant","user"],
-    required:true
+  role: {
+    type: String,
+    enum: ["owner", "branch-manager", "tenant", "user"],
+    required: true
   },
+  wishlist: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "PropertyBranch",
+  }],
   username: {
     type: String,
     required: true,

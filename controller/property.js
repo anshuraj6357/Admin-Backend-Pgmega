@@ -5,6 +5,7 @@ const Signup = require("../model/user")
 const branchmanager = require("../model/branchmanager")
 const bcrypt = require("bcrypt")
 const Uploadmedia = require("../utils/cloudinary.js")
+const axios=require('axios')
 
 async function AllProperty(id) {
     const Allproprty = await Property.find({ owner: id }).populate({
@@ -59,7 +60,6 @@ exports.CreateProperty = async (req, res) => {
 
     }
 }
-const axios = require("axios");
 
 exports.AddBranch = async (req, res) => {
   console.log(req.body);
@@ -1034,6 +1034,7 @@ exports.getAllPg = async (req, res) => {
                 select: "-rooms -__v -createdAt -updatedAt"  // ⬅ REMOVE heavy fields
             })
             .exec();
+            console.log(branches)
 
         const allrooms = branches.flatMap(branch => branch.rooms);
 

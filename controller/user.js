@@ -1,5 +1,6 @@
 
 const Signup = require("../model/user")
+const Wishlist = require("../model/wishlist")
 const bcrypt = require("bcrypt")
 const jwt = require("jsonwebtoken")
 const { sendForgotPasswordMail } = require('../utils/mail')
@@ -64,8 +65,57 @@ const signupcontroller = async (req, res) => {
         })
     }
 }
+// --------------------------------------------
+// ADD OR REMOVE FROM WISHLIST (TOGGLE)
+// --------------------------------------------
+ const toggleWishlist = async (req, res) => {
+  try {
+    console.log(req.body)
+    const userId = req.user._id;
+    const { pgId } = req.body;
+
+    if (!pgId) {
+      return res.status(400).json({ message: "PG ID is required" });
+    }
+
+    // check if exists
+    const exists = await Wishlist.findOne({ userId, pgId });
+
+    if (exists) {
+      await Wishlist.deleteOne({ userId, pgId });
+      return res.json({ success: true, message: "Removed from wishlist" });
+    }
+
+    // add
+    const newItem = await Wishlist.create({ userId, pgId });
+    return res.json({ success: true, message: "Added to wishlist", data: newItem });
+
+  } catch (error) {
+    console.error("Wishlist toggle error:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
 
 
+// --------------------------------------------
+// GET USER WISHLIST
+//---------------------------------------------
+ const getWishlist = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const items = await Wishlist.find({ userId });
+    console.log(items)
+
+    res.json({
+      success: true,
+      data: items,
+    });
+  } catch (error) {
+    console.error("Fetch wishlist error:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
 
 
 
@@ -321,4 +371,4 @@ const checkmail = async (req, res) => {
 
     }
 }
-module.exports = { signupcontroller, GetUserProfile, Logincontroller, Logoutcontroller, forgotUser, checkmail };
+module.exports = { signupcontroller,getWishlist,toggleWishlist, GetUserProfile, Logincontroller, Logoutcontroller, forgotUser, checkmail };

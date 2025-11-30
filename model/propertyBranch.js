@@ -112,4 +112,3 @@ const propertyBranchSchema = new mongoose.Schema({
 propertyBranchSchema.index({ location: "2dsphere" });
 
 module.exports = mongoose.model("PropertyBranch", propertyBranchSchema);
-module.exports = mongoose.model("PropertyBranch", propertyBranchSchema);
