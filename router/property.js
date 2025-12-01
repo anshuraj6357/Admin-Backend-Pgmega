@@ -8,11 +8,12 @@ const upload = multer({ storage: multer.diskStorage({}) });
 const {
     GetAllBranchOwner, AddBranch, EditBranch, getAllPg,
     getAllBranchesWithLocation,
+    deleteimage, addRoomImages,
     AppliedFilters, AppliedAllFilters, DeleteRoom,
-    UpdateRoom, AllRooms, GetRoomById,changebranchpassword,
+    UpdateRoom, AllRooms, GetRoomById, changebranchpassword,
     DeleteBranch, DeleteProperty, GetAllBranch,
     AddRoom, addhotelroom, getdetails,
-    getalllistedandunlisted,listPgRoom,
+    getalllistedandunlisted, listPgRoom,
     appointBranchManager, GetAllBranchByBranchId
 } = require("../controller/property");
 
@@ -23,6 +24,14 @@ console.log("hii")
 router.get("/get", Validate, GetAllBranch)
 router.get("/getallpg", getalllistedandunlisted)
 router.post("/listpg", listPgRoom)
+router.delete("/deleteroomimage", deleteimage)
+// Upload up to 10 images
+router.put(
+    "/addroomimages",
+    upload.array("roomImages", 10),
+    addRoomImages
+);
+
 router.put("/branchmanager/passwordchange", Validate, changebranchpassword)
 router.get("/location/:branchId", getAllBranchesWithLocation)
 router.get("/getalllbranchowner", Validate, GetAllBranchOwner)

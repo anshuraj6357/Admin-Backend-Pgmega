@@ -24,6 +24,12 @@ exports.Validate = async (req, res, next) => {
         const users = await Signup.findById(decoded.id);
         console.log("grvr",users)
         if (!users) {
+            res.clearCookie('babbarCookie', {
+            httpOnly: true,
+            sameSite: 'none',
+            path: '/', // if used during set
+        });
+
             return res.status(400).json({
                 success: false,
                 message: "User Not Found"

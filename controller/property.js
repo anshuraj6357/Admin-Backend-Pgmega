@@ -5,6 +5,7 @@ const Signup = require("../model/user")
 const branchmanager = require("../model/branchmanager")
 const bcrypt = require("bcrypt")
 const Uploadmedia = require("../utils/cloudinary.js")
+const deletemedia = require("../utils/cloudinary.js")
 const axios = require('axios')
 
 async function AllProperty(id) {
@@ -930,6 +931,7 @@ exports.AppliedFilters = async (req, res) => {
 };
 exports.getdetails = async (req, res) => {
     try {
+        console.log(req.body)
 
 
         const { id } = req.params;
@@ -1106,6 +1108,124 @@ exports.getAllPg = async (req, res) => {
     }
 };
 
+exports.deleteimage = async (req, res) => {
+    try {
+        console.log(req.body);
+
+        const { id, imageurl } = req.body;
+
+        if (!id || !imageurl) {
+            return res.status(400).json({
+                success: false,
+                message: "Please select image",
+            });
+        }
+
+        // Find the branch that contains the room
+        const foundroom = await PropertyBranch.findOne({ "rooms._id": id });
+        if (!foundroom) {
+            return res.status(400).json({
+                success: false,
+                message: "Room not found",
+            });
+        }
+
+        // Find the specific room
+        const room = foundroom.rooms.id(id);
+        if (!room) {
+            return res.status(400).json({
+                success: false,
+                message: "Room not found inside branch",
+            });
+        }
+
+        // Delete image from cloud
+        const respons = await deletemedia.deletemedia(imageurl);
+        if (!respons) {
+            return res.status(400).json({
+                success: false,
+                message: "Not able to delete the photo",
+            });
+        }
+
+        // Remove from DB array
+        room.roomImages.pull(imageurl);
+
+        await foundroom.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Room image deleted successfully",
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+exports.addRoomImages = async (req, res) => {
+  try {
+    console.log(req.body)
+    const { id } = req.body;
+    console.log(req.files)
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No images selected",
+      });
+    }
+
+    // Find the branch that contains the room
+    const foundRoomBranch = await PropertyBranch.findOne({ "rooms._id": id });
+    if (!foundRoomBranch) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found",
+      });
+    }
+
+    const room = foundRoomBranch.rooms.id(id);
+    if (!room) {
+      return res.status(404).json({
+        success: false,
+        message: "Room not found inside branch",
+      });
+    }
+
+    // Upload each image to Cloudinary
+    const uploadedUrls = [];
+    for (let file of req.files) {
+      const uploadResp = await Uploadmedia.Uploadmedia(file.path || file.buffer, {
+        folder: "room_images",
+      });
+      uploadedUrls.push(uploadResp.secure_url);
+    }
+
+    // Add uploaded URLs to roomImages array
+    room.roomImages.push(...uploadedUrls);
+
+    await foundRoomBranch.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Images added successfully",
+      roomImages: room.roomImages,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: err.message,
+    });
+  }
+};
 
 
 
@@ -1149,8 +1269,8 @@ exports.getalllistedandunlisted = async (req, res) => {
 
 exports.listPgRoom = async (req, res) => {
     try {
-         console.log("Incoming Body:", req.body);
-        const { branchId, roomId,comment } = req.body;
+        console.log("Incoming Body:", req.body);
+        const { branchId, roomId, comment } = req.body;
 
         if (!branchId || !roomId) {
             return res.status(400).json({
@@ -1182,15 +1302,15 @@ exports.listPgRoom = async (req, res) => {
 
         }
         else {
-            if(!comment){
+            if (!comment) {
                 return res.status(400).json({
-                    success:false,
-                    message:"Please write the reasons"
+                    success: false,
+                    message: "Please write the reasons"
                 })
             }
             // Update publish status
             room.toPublish.status = false;
-            room.comment=comment;
+            room.comment = comment;
 
         }
         room.toPublish.date = new Date();
@@ -1215,3 +1335,5 @@ exports.listPgRoom = async (req, res) => {
         });
     }
 };
+
+
