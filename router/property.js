@@ -39,8 +39,8 @@ router.get("/getalllbranchowner", Validate, GetAllBranchOwner)
 router.get("/allrooms", Validate, AllRooms)
 router.delete("/deleteroom/:id", Validate, DeleteRoom)
 router.put("/updateroom/:Id", Validate, UpdateRoom)
-router.post("/appliedallfilter", Validate, AppliedAllFilters)
-router.get("/filtered/:cityFromQuery", Validate, AppliedFilters)
+router.post("/appliedallfilter", AppliedAllFilters)
+router.get("/filtered/:cityFromQuery", AppliedFilters)
 router.post(
     "/addroom", Validate,
     upload.fields([{ name: "images", maxCount: 10 }]),
