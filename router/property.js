@@ -10,7 +10,7 @@ const {
     getAllBranchesWithLocation,
     deleteimage, addRoomImages,
     AppliedFilters, AppliedAllFilters, DeleteRoom,
-    UpdateRoom, AllRooms, GetRoomById, changebranchpassword,
+    UpdateRoom, AllRooms, getAllBranchManager, changebranchpassword,
     DeleteBranch, DeleteProperty, GetAllBranch,
     AddRoom, addhotelroom, getdetails,
     getalllistedandunlisted, listPgRoom,
@@ -24,6 +24,7 @@ console.log("hii")
 router.get("/get", Validate, GetAllBranch)
 router.get("/getallpg", getalllistedandunlisted)
 router.post("/listpg", listPgRoom)
+router.post("/getproperty/allbranchmanager",Validate, getAllBranchManager)
 router.delete("/deleteroomimage", deleteimage)
 // Upload up to 10 images
 router.put(

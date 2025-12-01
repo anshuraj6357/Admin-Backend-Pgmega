@@ -1227,6 +1227,37 @@ exports.addRoomImages = async (req, res) => {
   }
 };
 
+exports.getAllBranchManager = async (req, res) => {
+    try {
+        const id=req.user._id
+        const branches = await PropertyBranch.find().populate("owner");
+        let p=[];
+
+        for(const a of branches){
+            if(branches.owner._id===id){
+                p.push(...branches.owner);
+            }
+        }
+
+
+        return res.status(200).json({
+            success: true,
+            message: "Fetched all branch manager",
+            p
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message,
+        });
+    }
+};
+
+
+
 
 
 exports.getalllistedandunlisted = async (req, res) => {
