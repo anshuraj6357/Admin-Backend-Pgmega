@@ -8,6 +8,9 @@ const RoomSchema = new mongoose.Schema({
     city: {
         type: String
     },
+    comment: {
+        type: String
+    },
     toPublish: {
         status: { type: Boolean, default: false },
         date: { type: Date },

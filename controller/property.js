@@ -1149,7 +1149,8 @@ exports.getalllistedandunlisted = async (req, res) => {
 
 exports.listPgRoom = async (req, res) => {
     try {
-        const { branchId, roomId } = req.body;
+         console.log("Incoming Body:", req.body);
+        const { branchId, roomId,comment } = req.body;
 
         if (!branchId || !roomId) {
             return res.status(400).json({
@@ -1175,10 +1176,27 @@ exports.listPgRoom = async (req, res) => {
                 message: "Room not found"
             });
         }
+        if (room.toPublish.status === false) {
+            // Update publish status
+            room.toPublish.status = true;
 
-        // Update publish status
-        room.toPublish.status = true;
+        }
+        else {
+            if(!comment){
+                return res.status(400).json({
+                    success:false,
+                    message:"Please write the reasons"
+                })
+            }
+            // Update publish status
+            room.toPublish.status = false;
+            room.comment=comment;
+
+        }
         room.toPublish.date = new Date();
+
+
+
 
         await branch.save();
 
