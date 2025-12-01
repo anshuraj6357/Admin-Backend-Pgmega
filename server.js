@@ -10,7 +10,6 @@ const analyticsRouter = require("./router/analysis");
 const staffRouter = require("./router/staff");
 const paymentRouter = require("./router/payment");
 const cookieparser = require("cookie-parser");
-const path = require("path");
 
 // Load env variables FIRST
 dotenv.config();
@@ -32,16 +31,17 @@ app.use(
       "https://admin-frontend-pgmega.vercel.app",
       "https://www.roomgi.com",
       "https://roomgi.com",
-      "https://admin-frontend-pgmega.vercel.app",
+      "https://admin-frontend-pgmega.vercel.app", 
       "https://roomgi.com",
-      "https://www.roomgi.com",
+      "https://www.roomgi.com"
     ],
     credentials: true,
   })
 );
 
-// ✅ Loader.io verification (IMPORTANT)
-app.use(express.static(path.join(__dirname, "public")));
+// ❗ REMOVE ALL app.options() — Express doesn't need it
+// app.options("*", cors());  ❌ DELETE
+// app.options("/.*", cors()); ❌ DELETE
 
 // Routes
 app.use("/api/v1/user", userRouter);
