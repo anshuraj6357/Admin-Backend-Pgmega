@@ -7,15 +7,15 @@ const mongoose = require("mongoose");
 const RoomSchema = new mongoose.Schema({
     roomNumber: Number,
     capacity: Number,
-    occupied:{ 
-        type:Number,
-        default:0,
+    occupied: {
+        type: Number,
+        default: 0,
     },
     type: {
         type: String,
         enum: ["Single", "Double", "Triple"],
-
     },
+
     city: {
         type: String
     },
@@ -23,6 +23,11 @@ const RoomSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
+    verified: {
+        type: Boolean,
+        default: false
+    },
+
 
     // ⭐ Added earlier
     description: {

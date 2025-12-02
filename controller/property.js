@@ -562,148 +562,145 @@ exports.appointBranchManager = async (req, res) => {
     }
 };
 exports.AddRoom = async (req, res) => {
-  try {
-    console.log("Adding Room...");
-    console.log("BODY => ", req.body);
-    console.log("FILES => ", req.files);
+    try {
+        console.log("Adding Room...");
+        console.log("BODY => ", req.body);
+        console.log("FILES => ", req.files);
 
-    const imageFiles = req.files?.images;
+        const imageFiles = req.files?.images;
 
-    // Role check
-    if (req.user.role !== "branch-manager") {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorised to add a room",
-      });
+        // Role check
+        if (req.user.role !== "branch-manager") {
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorised to add a room",
+            });
+        }
+
+        // Extract fields from req.body
+        const {
+            branch,
+            roomNumber,
+            type,
+            price,
+            facilities,
+            description,
+            notAllowed,
+            rules,
+            furnishedType,
+            floor,
+            availabilityStatus,
+            rentperday,
+            rentperhour,
+            rentperNight,
+            category,
+            city,
+        } = req.body;
+
+        // Required fields validation
+        if (!branch || !roomNumber || !category) {
+            return res.status(400).json({
+                success: false,
+                message: "Please fill all required fields",
+            });
+        }
+
+        // Validate price based on category
+        if ((category === "Pg" || category === "Rented-Room") && !price) {
+            return res.status(400).json({
+                success: false,
+                message: "Price is required for PG or Rented-Room",
+            });
+        }
+        if (category === "Hotel" && !rentperday && !rentperhour && !rentperNight) {
+            return res.status(400).json({
+                success: false,
+                message: "At least one rent (per day/hour/night) is required for Hotel",
+            });
+        }
+
+        // Find branch
+        const foundBranch = await PropertyBranch.findById(branch);
+        if (!foundBranch) {
+            return res.status(404).json({
+                success: false,
+                message: "Branch not found",
+            });
+        }
+
+        // Check duplicate room number
+        const roomExists = foundBranch.rooms.some(
+            (room) => room.roomNumber == roomNumber
+        );
+        if (roomExists) {
+            return res.status(400).json({
+                success: false,
+                message: "Room Number Already Exists",
+            });
+        }
+
+        // Bed count based on type
+
+
+        // Upload images
+        const uploadedImages = [];
+        if (imageFiles && imageFiles.length > 0) {
+            for (let file of imageFiles) {
+                const uploadRes = await Uploadmedia.Uploadmedia(file.path);
+                uploadedImages.push(uploadRes.secure_url);
+            }
+        }
+
+        // Normalize arrays
+        const facilitiesArr = Array.isArray(facilities) ? facilities : (facilities ? [facilities] : []);
+        const notAllowedArr = Array.isArray(notAllowed) ? notAllowed : (notAllowed ? [notAllowed] : []);
+        const rulesArr = Array.isArray(rules) ? rules : (rules ? [rules] : []);
+
+        // Create room object according to schema
+        const newRoom = {
+            roomNumber,
+            type,
+            price: category !== "Hotel" ? price : undefined,
+            rentperday: category === "Hotel" ? rentperday : undefined,
+            rentperhour: category === "Hotel" ? rentperhour : undefined,
+            rentperNight: category === "Hotel" ? rentperNight : undefined,
+            facilities: facilitiesArr,
+            description: description || "",
+            notAllowed: notAllowedArr,
+            rules: rulesArr,
+            furnishedType: furnishedType || "Semi Furnished",
+            floor: floor || 0,
+            availabilityStatus: availabilityStatus || "Available",
+            category,
+            city: city || foundBranch.city,
+
+
+
+            createdBy: req.user._id,
+            branch: foundBranch._id,
+            roomImages: uploadedImages,
+        };
+
+        // Save inside branch.rooms array
+        foundBranch.rooms.push(newRoom);
+        foundBranch.totalBeds += bedCount;
+
+        await foundBranch.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Room added successfully",
+            ROOM: newRoom,
+        });
+
+    } catch (error) {
+        console.error("Error Adding Room :", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server Error",
+            error: error.message,
+        });
     }
-
-    // Extract fields from req.body
-    const {
-      branch,
-      roomNumber,
-      type,
-      price,
-      facilities,
-      description,
-      notAllowed,
-      rules,
-      furnishedType,
-      floor,
-      availabilityStatus,
-      rentperday,
-      rentperhour,
-      rentperNight,
-      category,
-      city,
-    } = req.body;
-
-    // Required fields validation
-    if (!branch || !roomNumber  || !category) {
-      return res.status(400).json({
-        success: false,
-        message: "Please fill all required fields",
-      });
-    }
-
-    // Validate price based on category
-    if ((category === "Pg" || category === "Rented-Room") && !price) {
-      return res.status(400).json({
-        success: false,
-        message: "Price is required for PG or Rented-Room",
-      });
-    }
-    if (category === "Hotel" && !rentperday && !rentperhour && !rentperNight) {
-      return res.status(400).json({
-        success: false,
-        message: "At least one rent (per day/hour/night) is required for Hotel",
-      });
-    }
-
-    // Find branch
-    const foundBranch = await PropertyBranch.findById(branch);
-    if (!foundBranch) {
-      return res.status(404).json({
-        success: false,
-        message: "Branch not found",
-      });
-    }
-
-    // Check duplicate room number
-    const roomExists = foundBranch.rooms.some(
-      (room) => room.roomNumber == roomNumber
-    );
-    if (roomExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Room Number Already Exists",
-      });
-    }
-
-    // Bed count based on type
-    let bedCount = 0;
-    if (type === "Single") bedCount = 1;
-    else if (type === "Double") bedCount = 2;
-    else if (type === "Triple") bedCount = 3;
-
-    // Upload images
-    const uploadedImages = [];
-    if (imageFiles && imageFiles.length > 0) {
-      for (let file of imageFiles) {
-        const uploadRes = await Uploadmedia.Uploadmedia(file.path);
-        uploadedImages.push(uploadRes.secure_url);
-      }
-    }
-
-    // Normalize arrays
-    const facilitiesArr = Array.isArray(facilities) ? facilities : (facilities ? [facilities] : []);
-    const notAllowedArr = Array.isArray(notAllowed) ? notAllowed : (notAllowed ? [notAllowed] : []);
-    const rulesArr = Array.isArray(rules) ? rules : (rules ? [rules] : []);
-
-    // Create room object according to schema
-    const newRoom = {
-      roomNumber,
-      type,
-      price: category !== "Hotel" ? price : undefined,
-      rentperday: category === "Hotel" ? rentperday : undefined,
-      rentperhour: category === "Hotel" ? rentperhour : undefined,
-      rentperNight: category === "Hotel" ? rentperNight : undefined,
-      facilities: facilitiesArr,
-      description: description || "",
-      notAllowed: notAllowedArr,
-      rules: rulesArr,
-      furnishedType: furnishedType || "Semi Furnished",
-      floor: floor || 0,
-      availabilityStatus: availabilityStatus || "Available",
-      category,
-      city: city || foundBranch.city,
-     
-    
-    
-      createdBy: req.user._id,
-      branch: foundBranch._id,
-      roomImages: uploadedImages,
-    };
-
-    // Save inside branch.rooms array
-    foundBranch.rooms.push(newRoom);
-    foundBranch.totalBeds += bedCount;
-
-    await foundBranch.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Room added successfully",
-      ROOM: newRoom,
-    });
-
-  } catch (error) {
-    console.error("Error Adding Room :", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
-  }
 };
 
 
@@ -1408,9 +1405,16 @@ exports.listPgRoom = async (req, res) => {
                 message: "Room not found"
             });
         }
+
+        let bedCount = 0;
+        if (room.type === "Single") bedCount = 1;
+        else if (room.type === "Double") bedCount = 2;
+        else if (room.type === "Triple") bedCount = 3;
         if (room.toPublish.status === false) {
             // Update publish status
             room.toPublish.status = true;
+            room.verified = true
+            branch.totalBeds += bedCount
 
         }
         else {
@@ -1423,7 +1427,8 @@ exports.listPgRoom = async (req, res) => {
             // Update publish status
             room.toPublish.status = false;
             room.comment = comment;
-
+            branch.totalBeds -= bedCount
+            room.verified = false
         }
         room.toPublish.date = new Date();
 
