@@ -25,8 +25,8 @@ exports.AddTenants = async (req, res) => {
             branch
         } = req.body;
 
-        // 1. FIND THE BRANCH
-        const FoundBranch = await PropertyBranch.findById(branch);
+        // 1️⃣ FIND THE BRANCH CORRECTLY
+        const FoundBranch = await PropertyBranch.findOne({ _id: branch });
 
         if (!FoundBranch) {
             return res.status(400).json({
@@ -35,33 +35,40 @@ exports.AddTenants = async (req, res) => {
             });
         }
 
-        // Make sure occupiedRoom is always an array of roomNumbers
-        if (!Array.isArray(FoundBranch.occupiedRoom)) {
-            FoundBranch.occupiedRoom = [];
-        }
-
         const roomNum = Number(roomNumber);
 
-        // 2. CHECK IF ROOM EXISTS IN THIS BRANCH
-        const roomExists = FoundBranch.rooms.some(
-            (room) => Number(room.roomNumber) === roomNum
+        // 2️⃣ FIND THE ROOM IN THE BRANCH
+        const room = FoundBranch.rooms.find(
+            (r) => Number(r.roomNumber) === roomNum
         );
 
-        if (!roomExists) {
+        if (!room) {
             return res.status(400).json({
                 success: false,
                 message: "Room not found in this branch"
             });
         }
-    const roomOccupied = FoundBranch.occupiedRoom.includes(roomNum);
 
-        if (roomOccupied) {
+        // 3️⃣ CHECK IF ROOM IS ALREADY FULL / OCCUPIED  
+        let capacity = 1;
+        if (room.type === "Double") capacity = 2;
+        if (room.type === "Triple") capacity = 3;
+
+        // Count how many tenants already stay in this room
+        const tenantsInRoom = await Tenant.countDocuments({
+            branch: branch,
+            roomNumber: roomNum
+        });
+
+        if (tenantsInRoom >= capacity) {
             return res.status(400).json({
                 success: false,
-                message: "Room already occupied"
+                message: "Room already full"
             });
         }
-    const NewTenant = new Tenant({
+
+        // 4️⃣ CREATE TENANT
+        const NewTenant = new Tenant({
             branch: branch,
             contactNumber,
             name,
@@ -77,14 +84,17 @@ exports.AddTenants = async (req, res) => {
         });
 
         await NewTenant.save();
-   FoundBranch.occupiedRoom.push(roomNum);
-        await FoundBranch.save();
+
+        // 5️⃣ UPDATE OCCUPIED ROOM LIST
+        if (!FoundBranch.occupiedRoom.includes(roomNum)) {
+            FoundBranch.occupiedRoom.push(roomNum);
+            await FoundBranch.save();
+        }
 
         return res.status(200).json({
             success: true,
             message: "Tenant added successfully",
             tenant: NewTenant,
-            branch: FoundBranch
         });
 
     } catch (error) {

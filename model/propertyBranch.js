@@ -8,6 +8,10 @@ const RoomSchema = new mongoose.Schema({
     city: {
         type: String
     },
+    count:{
+        type:Number,
+        default:0,
+    },
     comment: {
         type: String
     },
