@@ -6,7 +6,6 @@ const PropertyBranch = require("../model/propertyBranch")
 const Complaint = require("../model/complaints")
 
 
-
 exports.AddTenants = async (req, res) => {
     console.log("req.user.id", req.user._id);
 
@@ -25,51 +24,26 @@ exports.AddTenants = async (req, res) => {
             branch
         } = req.body;
 
-        // 1️⃣ FIND THE BRANCH CORRECTLY
-        const FoundBranch = await PropertyBranch.findOne({ _id: branch });
-
-        if (!FoundBranch) {
-            return res.status(400).json({
-                success: false,
-                message: "Branch not found"
-            });
+        if (!contactNumber || !name || !Rent || !roomNumber || !branch) {
+            return res.status(400).json({ success: false, message: "Required fields missing" });
         }
+
+        const FoundBranch = await PropertyBranch.findOne({ _id: branch });
+        if (!FoundBranch) return res.status(400).json({ success: false, message: "Branch not found" });
 
         const roomNum = Number(roomNumber);
+        const room = FoundBranch.rooms.find(r => Number(r.roomNumber) === roomNum);
+        if (!room) return res.status(400).json({ success: false, message: "Room not found in this branch" });
 
-        // 2️⃣ FIND THE ROOM IN THE BRANCH
-        const room = FoundBranch.rooms.find(
-            (r) => Number(r.roomNumber) === roomNum
-        );
-
-        if (!room) {
-            return res.status(400).json({
-                success: false,
-                message: "Room not found in this branch"
-            });
-        }
-
-        // 3️⃣ CHECK IF ROOM IS ALREADY FULL / OCCUPIED  
-        let capacity = 1;
-        if (room.type === "Double") capacity = 2;
-        if (room.type === "Triple") capacity = 3;
-
-        // Count how many tenants already stay in this room
-        const tenantsInRoom = await Tenant.countDocuments({
-            branch: branch,
-            roomNumber: roomNum
-        });
+        let capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
+        const tenantsInRoom = await Tenant.countDocuments({ branch: branch,status:"Active", roomNumber: roomNum });
 
         if (tenantsInRoom >= capacity) {
-            return res.status(400).json({
-                success: false,
-                message: "Room already full"
-            });
+            return res.status(400).json({ success: false, message: "Room already full" });
         }
 
-        // 4️⃣ CREATE TENANT
         const NewTenant = new Tenant({
-            branch: branch,
+            branch,
             contactNumber,
             name,
             Rent,
@@ -85,16 +59,22 @@ exports.AddTenants = async (req, res) => {
 
         await NewTenant.save();
 
-        // 5️⃣ UPDATE OCCUPIED ROOM LIST
-        if (!FoundBranch.occupiedRoom.includes(roomNum)) {
-            FoundBranch.occupiedRoom.push(roomNum);
-            await FoundBranch.save();
+        // Update room status only when it becomes full
+        if (room.occupied + 1 >= capacity) {
+            room.availabilityStatus = "Occupied";
+            if (!FoundBranch.occupiedRoom.includes(roomNum)) {
+                FoundBranch.occupiedRoom.push(roomNum);
+            }
         }
+        room.occupied += 1;
+
+        await FoundBranch.save();
 
         return res.status(200).json({
             success: true,
             message: "Tenant added successfully",
             tenant: NewTenant,
+            FoundBranch
         });
 
     } catch (error) {
@@ -112,48 +92,60 @@ exports.MarkTenantInactive = async (req, res) => {
         const { id } = req.params;
 
         const foundedTenant = await Tenant.findById(id);
-
         if (!foundedTenant) {
-            return res.status(400).json({
-                success: false,
-                message: "Tenant not found"
-            });
+            return res.status(400).json({ success: false, message: "Tenant not found" });
         }
+
+        const branch = await PropertyBranch.findById(foundedTenant.branch);
+        if (!branch) {
+            return res.status(400).json({ success: false, message: "Branch not found" });
+        }
+
+        const roomNum = foundedTenant.roomNumber;
+        const room = branch.rooms.find(r => r.roomNumber === roomNum);
+        if (!room) {
+            return res.status(400).json({ success: false, message: "Room not found" });
+        }
+
+        const capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
 
         // CASE 1: No dues → Direct checkout
         if (foundedTenant.dues <= 0) {
-
             foundedTenant.status = "In-Active";
-            foundedTenant.checkedoutdate = Date.now();
+            foundedTenant.checkedoutdate = new Date();
 
-            // Remove roomNumber from occupiedRoom
-            await PropertyBranch.findByIdAndUpdate(
-                foundedTenant.branch,
-                { $pull: { occupiedRoom: foundedTenant.roomNumber } },
-                { new: true }
-            );
+            // Decrement room occupancy safely
+            room.occupied = Math.max(0, (room.occupied || 1) - 1);
 
+            // Update room availability
+            room.availabilityStatus = room.occupied >= capacity ? "Occupied" : "Available";
+
+            // Remove room from occupiedRoom if no tenants
+            if (room.occupied === 0) {
+                branch.occupiedRoom = branch.occupiedRoom.filter(rn => rn !== roomNum);
+            }
+
+          
+            await branch.save();
             await foundedTenant.save();
 
             return res.status(200).json({
                 success: true,
-                message: "Tenant set to Inactive successfully"
+                message: "Tenant set to Inactive successfully",
+                branch,
+                tenant: foundedTenant
             });
         }
 
-        // CASE 2: Tenant has payments → verify dues
+        // CASE 2: Tenant has dues → verify payments
         const payments = await Payment.find({ tenantId: foundedTenant._id });
         if (payments.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Tenant has never made a payment"
-            });
+            return res.status(400).json({ success: false, message: `Tenant has dues of ${foundedTenant.dues}` });
         }
 
         let totalPaid = foundedTenant.advanced;
-        payments.forEach((p) => (totalPaid += p.amountpaid));
+        payments.forEach(p => totalPaid += p.amountpaid);
 
-        // Calculate total months
         const checkIn = new Date(foundedTenant.checkInDate);
         const checkOut = new Date();
         const years = checkOut.getFullYear() - checkIn.getFullYear();
@@ -163,39 +155,42 @@ exports.MarkTenantInactive = async (req, res) => {
         const totalShouldPay = totalMonths * foundedTenant.Rent;
 
         if (totalShouldPay - totalPaid !== 0) {
-            return res.status(400).json({
-                success: false,
-                message: "Please clear all dues before checkout"
-            });
+            return res.status(400).json({ success: false, message: "Please clear all dues before checkout" });
         }
 
         // CHECKOUT PROCESS
         foundedTenant.status = "In-Active";
         foundedTenant.checkedoutdate = checkOut;
 
-        await PropertyBranch.findByIdAndUpdate(
-            foundedTenant.branch,
-            { $pull: { occupiedRoom: foundedTenant.roomNumber } },
-            { new: true }
-        );
+        // Decrement room occupancy safely
+        room.occupied = Math.max(0, (room.occupied || 1) - 1);
 
+        // Update room availability
+        room.availabilityStatus = room.occupied >= capacity ? "Occupied" : "Available";
+
+        // Remove room from occupiedRoom if empty
+        if (room.occupied === 0) {
+            branch.occupiedRoom = branch.occupiedRoom.filter(rn => rn !== roomNum);
+        }
+
+        // Recalculate totalBeds
+        branch.totalBeds = branch.rooms.reduce((acc, r) => acc + (r.capacity - (r.occupied || 0)), 0);
+
+        await branch.save();
         await foundedTenant.save();
 
         return res.status(200).json({
             success: true,
-            message: "Tenant set to Inactive successfully"
+            message: "Tenant set to Inactive successfully",
+            branch,
+            tenant: foundedTenant
         });
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({
-            success: false,
-            message: "Server Error",
-            error: error.message,
-        });
+        return res.status(500).json({ success: false, message: "Server Error", error: error.message });
     }
 };
-
 
 exports.AddRentTenants = async (req, res) => {
 

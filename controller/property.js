@@ -443,6 +443,12 @@ exports.DeleteBranch = async (req, res) => {
                 mesage: "You are not the owner"
             })
         }
+        if (FoundBranch.occupiedRoom.length > 0) {
+            return res.status(400).json({
+                success: false,
+                mesage: "Someone is occupied the room "
+            })
+        }
 
         PropertyBranch.deleteById(FoundBranch._id)
         return res.status(200).json({
@@ -556,101 +562,151 @@ exports.appointBranchManager = async (req, res) => {
     }
 };
 exports.AddRoom = async (req, res) => {
-    try {
-        console.log("Adding Room...");
-        console.log("BODY => ", req.body);
-        console.log("FILES => ", req.files);
+  try {
+    console.log("Adding Room...");
+    console.log("BODY => ", req.body);
+    console.log("FILES => ", req.files);
 
-        const imageFiles = req.files?.images;
+    const imageFiles = req.files?.images;
 
-        // Role check
-        if (req.user.role !== "branch-manager") {
-            return res.status(403).json({
-                success: false,
-                message: "You are not authorised to add a room"
-            });
-        }
-
-        const { branch, roomNumber, type, price, facilities } = req.body;
-
-        // Required fields validation
-        if (!branch || !roomNumber || !type || !price || !facilities) {
-            return res.status(400).json({
-                success: false,
-                message: "Please fill all required fields"
-            });
-        }
-
-        // Find branch
-        const foundBranch = await PropertyBranch.findById(branch);
-        if (!foundBranch) {
-            return res.status(404).json({
-                success: false,
-                message: "Branch not found"
-            });
-        }
-
-        // 🔥 **Duplicate Room Number Check (FIRST PRIORITY)**
-        const roomExists = foundBranch.rooms.some(
-            (room) => room.roomNumber === roomNumber
-        );
-
-        if (roomExists) {
-            console.log("Room Number Already Exists");
-            return res.status(400).json({
-                success: false,
-                message: "Room Number Already Exists"
-            });
-        }
-
-        // Check bed count based on type
-        let bedCount = 0;
-        if (type === "Single") bedCount = 1;
-        else if (type === "Double") bedCount = 2;
-        else if (type === "Triple") bedCount = 3;
-
-        // Uploading images
-        const uploadedImages = [];
-        if (imageFiles && imageFiles.length > 0) {
-            for (let file of imageFiles) {
-                const uploadRes = await Uploadmedia.Uploadmedia(file.path);
-                uploadedImages.push(uploadRes.secure_url);
-            }
-        }
-
-        // New room object
-        const newRoom = {
-            roomNumber,
-            type,
-            price,
-            facilities,
-            createdBy: req.user._id,
-            branch: foundBranch._id,
-            roomImages: uploadedImages,
-            city: foundBranch.city,
-        };
-
-        // Push new room to branch
-        foundBranch.rooms.push(newRoom);
-        foundBranch.totalBeds += bedCount;
-
-        await foundBranch.save();
-
-        return res.status(200).json({
-            success: true,
-            message: "Room added successfully",
-            ROOM: newRoom
-        });
-
-    } catch (error) {
-        console.error("Error Adding Room :", error);
-        return res.status(500).json({
-            success: false,
-            message: "Server Error",
-            error: error.message
-        });
+    // Role check
+    if (req.user.role !== "branch-manager") {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorised to add a room",
+      });
     }
+
+    // Extract fields from req.body
+    const {
+      branch,
+      roomNumber,
+      type,
+      price,
+      facilities,
+      description,
+      notAllowed,
+      rules,
+      furnishedType,
+      floor,
+      availabilityStatus,
+      rentperday,
+      rentperhour,
+      rentperNight,
+      category,
+      city,
+    } = req.body;
+
+    // Required fields validation
+    if (!branch || !roomNumber || !type || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Please fill all required fields",
+      });
+    }
+
+    // Validate price based on category
+    if ((category === "Pg" || category === "Rented-Room") && !price) {
+      return res.status(400).json({
+        success: false,
+        message: "Price is required for PG or Rented-Room",
+      });
+    }
+    if (category === "Hotel" && !rentperday && !rentperhour && !rentperNight) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one rent (per day/hour/night) is required for Hotel",
+      });
+    }
+
+    // Find branch
+    const foundBranch = await PropertyBranch.findById(branch);
+    if (!foundBranch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found",
+      });
+    }
+
+    // Check duplicate room number
+    const roomExists = foundBranch.rooms.some(
+      (room) => room.roomNumber == roomNumber
+    );
+    if (roomExists) {
+      return res.status(400).json({
+        success: false,
+        message: "Room Number Already Exists",
+      });
+    }
+
+    // Bed count based on type
+    let bedCount = 0;
+    if (type === "Single") bedCount = 1;
+    else if (type === "Double") bedCount = 2;
+    else if (type === "Triple") bedCount = 3;
+
+    // Upload images
+    const uploadedImages = [];
+    if (imageFiles && imageFiles.length > 0) {
+      for (let file of imageFiles) {
+        const uploadRes = await Uploadmedia.Uploadmedia(file.path);
+        uploadedImages.push(uploadRes.secure_url);
+      }
+    }
+
+    // Normalize arrays
+    const facilitiesArr = Array.isArray(facilities) ? facilities : (facilities ? [facilities] : []);
+    const notAllowedArr = Array.isArray(notAllowed) ? notAllowed : (notAllowed ? [notAllowed] : []);
+    const rulesArr = Array.isArray(rules) ? rules : (rules ? [rules] : []);
+
+    // Create room object according to schema
+    const newRoom = {
+      roomNumber,
+      type,
+      price: category !== "Hotel" ? price : undefined,
+      rentperday: category === "Hotel" ? rentperday : undefined,
+      rentperhour: category === "Hotel" ? rentperhour : undefined,
+      rentperNight: category === "Hotel" ? rentperNight : undefined,
+      facilities: facilitiesArr,
+      description: description || "",
+      notAllowed: notAllowedArr,
+      rules: rulesArr,
+      furnishedType: furnishedType || "Semi Furnished",
+      floor: floor || 0,
+      availabilityStatus: availabilityStatus || "Available",
+      category,
+      city: city || foundBranch.city,
+     
+    
+    
+      createdBy: req.user._id,
+      branch: foundBranch._id,
+      roomImages: uploadedImages,
+    };
+
+    // Save inside branch.rooms array
+    foundBranch.rooms.push(newRoom);
+    foundBranch.totalBeds += bedCount;
+
+    await foundBranch.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Room added successfully",
+      ROOM: newRoom,
+    });
+
+  } catch (error) {
+    console.error("Error Adding Room :", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message,
+    });
+  }
 };
+
+
 
 exports.AllRooms = async (req, res) => {
     try {
@@ -1016,9 +1072,18 @@ exports.DeleteRoom = async (req, res) => {
         } else if (room.type === "Triple") {
             foundBranch.totalBeds -= 3;
         }
-
         // Prevent negative beds
         foundBranch.totalBeds = Math.max(0, foundBranch.totalBeds);
+
+
+        if (foundBranch.totalBeds > 0) {
+
+            return res.status(400).json({
+                success: false,
+                message: "Room is Occupied by someone"
+            });
+        }
+
 
         // 4️⃣ Remove the room
         room.deleteOne(); // OR foundBranch.rooms.id(id).remove()
@@ -1184,73 +1249,73 @@ exports.deleteimage = async (req, res) => {
     }
 };
 exports.addRoomImages = async (req, res) => {
-  try {
-    console.log(req.body)
-    const { id } = req.body;
-    console.log(req.files)
+    try {
+        console.log(req.body)
+        const { id } = req.body;
+        console.log(req.files)
 
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No images selected",
-      });
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No images selected",
+            });
+        }
+
+        // Find the branch that contains the room
+        const foundRoomBranch = await PropertyBranch.findOne({ "rooms._id": id });
+        if (!foundRoomBranch) {
+            return res.status(404).json({
+                success: false,
+                message: "Room not found",
+            });
+        }
+
+        const room = foundRoomBranch.rooms.id(id);
+        if (!room) {
+            return res.status(404).json({
+                success: false,
+                message: "Room not found inside branch",
+            });
+        }
+
+        // Upload each image to Cloudinary
+        const uploadedUrls = [];
+        for (let file of req.files) {
+            const uploadResp = await Uploadmedia.Uploadmedia(file.path || file.buffer, {
+                folder: "room_images",
+            });
+            uploadedUrls.push(uploadResp.secure_url);
+        }
+
+        // Add uploaded URLs to roomImages array
+        room.roomImages.push(...uploadedUrls);
+
+        await foundRoomBranch.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Images added successfully",
+            roomImages: room.roomImages,
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: err.message,
+        });
     }
-
-    // Find the branch that contains the room
-    const foundRoomBranch = await PropertyBranch.findOne({ "rooms._id": id });
-    if (!foundRoomBranch) {
-      return res.status(404).json({
-        success: false,
-        message: "Room not found",
-      });
-    }
-
-    const room = foundRoomBranch.rooms.id(id);
-    if (!room) {
-      return res.status(404).json({
-        success: false,
-        message: "Room not found inside branch",
-      });
-    }
-
-    // Upload each image to Cloudinary
-    const uploadedUrls = [];
-    for (let file of req.files) {
-      const uploadResp = await Uploadmedia.Uploadmedia(file.path || file.buffer, {
-        folder: "room_images",
-      });
-      uploadedUrls.push(uploadResp.secure_url);
-    }
-
-    // Add uploaded URLs to roomImages array
-    room.roomImages.push(...uploadedUrls);
-
-    await foundRoomBranch.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Images added successfully",
-      roomImages: room.roomImages,
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: err.message,
-    });
-  }
 };
 
 exports.getAllBranchManager = async (req, res) => {
     try {
-        const id=req.user._id
+        const id = req.user._id
         const branches = await PropertyBranch.find().populate("owner");
-        let p=[];
+        let p = [];
 
-        for(const a of branches){
-            if(branches.owner._id===id){
+        for (const a of branches) {
+            if (branches.owner._id === id) {
                 p.push(...branches.owner);
             }
         }
