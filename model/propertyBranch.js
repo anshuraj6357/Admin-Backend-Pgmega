@@ -45,28 +45,15 @@ const RoomSchema = new mongoose.Schema({
             enum: [
                 "AC",
                 "Non-AC",
-                "Attached Bathroom",
-                "Common Bathroom",
-                "Balcony",
-                "Geyser",
+                "Bathroom",
                 "WiFi",
-                "Wardrobe",
-                "Table & Chair",
                 "Power Backup",
                 "Laundry",
-                "RO Water",
                 "CCTV",
                 "Parking",
-                "Housekeeping",
-                "Lift",
-                "Shared Kitchen",
                 "Refrigerator",
-                "Microwave",
-                "Security Guard",
-                "24x7 Water",
-                "24x7 Electricity",
-                "Study Lamp",
-                "TV"
+                 "24x7 Electricity",
+              
 
             ]
         }
