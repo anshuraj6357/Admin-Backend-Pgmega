@@ -1,20 +1,87 @@
+
 const mongoose = require("mongoose");
+
+
+
 
 const RoomSchema = new mongoose.Schema({
     roomNumber: Number,
     capacity: Number,
-    occupied: Number,
-    type: String,
-    city: {
-        type: String
-    },
-    count:{
+    occupied:{ 
         type:Number,
         default:0,
     },
-    comment: {
+    type: {
+        type: String,
+        enum: ["Single", "Double", "Triple"],
+
+    },
+    city: {
         type: String
     },
+    count: {
+        type: Number,
+        default: 0,
+    },
+
+    // ⭐ Added earlier
+    description: {
+        type: String,
+        default: ""
+    },
+
+    // ⭐ Added earlier
+    notAllowed: [
+        {
+            type: String,
+            enum: [
+                "Smoking",
+                "Alcohol",
+                "Pets",
+                "Visitors",
+                "Loud Music"
+            ]
+        }
+    ],
+
+    // ⭐ NEW ADDITIONS
+
+    rules: [
+        {
+            type: String,
+            enum: [
+                "Keep room clean",
+                "No loud music",
+                "Maintain hygiene",
+                "No outside guests",
+                "Respect timings"
+            ]
+        }
+    ],
+
+    allowedFor: {
+        type: String,
+        enum: ["Boys", "Girls", "Family", "Anyone"],
+        default: "Anyone"
+    },
+
+    furnishedType: {
+        type: String,
+        enum: ["Fully Furnished", "Semi Furnished", "Unfurnished"],
+    },
+
+    floor: {
+        type: Number,
+        default: 0
+    },
+
+    availabilityStatus: {
+        type: String,
+        enum: ["Available", "Occupied"],
+        default: "Available"
+    },
+
+
     toPublish: {
         status: { type: Boolean, default: false },
         date: { type: Date },
@@ -25,7 +92,7 @@ const RoomSchema = new mongoose.Schema({
     rentperNight: Number,
     category: {
         type: String,
-        enum: ["Pg", "Room"],
+        enum: ["Pg", "Rented-Room", "Hotel"],
         default: "Pg"
     },
     createdBy: {
@@ -56,9 +123,7 @@ const RoomSchema = new mongoose.Schema({
                 "CCTV",
                 "Parking",
                 "Refrigerator",
-                 "24x7 Electricity",
-              
-
+                "24x7 Electricity",
             ]
         }
     ]
@@ -98,6 +163,7 @@ const propertyBranchSchema = new mongoose.Schema({
     dues: { type: Number, default: 0 },
     rent: { type: Number, default: 0 },
     rooms: [RoomSchema],
+    occupiedRoom: [{ type: Number }],
     status: {
         enum: ["Active", "InActive", "maintenance", "coming-Soon"],
         type: String,
