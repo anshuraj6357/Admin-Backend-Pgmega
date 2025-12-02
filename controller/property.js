@@ -598,7 +598,7 @@ exports.AddRoom = async (req, res) => {
     } = req.body;
 
     // Required fields validation
-    if (!branch || !roomNumber || !type || !category) {
+    if (!branch || !roomNumber  || !category) {
       return res.status(400).json({
         success: false,
         message: "Please fill all required fields",
