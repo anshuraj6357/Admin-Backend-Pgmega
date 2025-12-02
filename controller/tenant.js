@@ -53,9 +53,7 @@ exports.AddTenants = async (req, res) => {
                 message: "Room not found in this branch"
             });
         }
-
-        // 3. CHECK IF ROOM ALREADY OCCUPIED
-        const roomOccupied = FoundBranch.occupiedRoom.includes(roomNum);
+    const roomOccupied = FoundBranch.occupiedRoom.includes(roomNum);
 
         if (roomOccupied) {
             return res.status(400).json({
@@ -63,9 +61,7 @@ exports.AddTenants = async (req, res) => {
                 message: "Room already occupied"
             });
         }
-
-        // 4. CREATE THE TENANT
-        const NewTenant = new Tenant({
+    const NewTenant = new Tenant({
             branch: branch,
             contactNumber,
             name,
@@ -81,9 +77,7 @@ exports.AddTenants = async (req, res) => {
         });
 
         await NewTenant.save();
-
-        // 5. MARK ROOM AS OCCUPIED (STORE ROOM NUMBER, NOT TENANT ID)
-        FoundBranch.occupiedRoom.push(roomNum);
+   FoundBranch.occupiedRoom.push(roomNum);
         await FoundBranch.save();
 
         return res.status(200).json({

@@ -988,27 +988,42 @@ exports.getdetails = async (req, res) => {
 
 exports.DeleteRoom = async (req, res) => {
     try {
-
-
         const { id } = req.params;
 
-        const foundBranch = await PropertyBranch.findOne({ "rooms._id": id })
+        // 1️⃣ Find the branch containing the specific room
+        const foundBranch = await PropertyBranch.findOne({ "rooms._id": id });
         if (!foundBranch) {
             return res.status(400).json({
-                succes: false,
-                message: "not found the branch "
-            })
+                success: false,
+                message: "Branch not found for this room"
+            });
         }
-        if (foundBranch.rooms.type === "Single") {
+
+        // 2️⃣ Get the exact room object that we are deleting
+        const room = foundBranch.rooms.id(id);
+        if (!room) {
+            return res.status(400).json({
+                success: false,
+                message: "Room not found"
+            });
+        }
+
+        // 3️⃣ Update total beds based on room type
+        if (room.type === "Single") {
             foundBranch.totalBeds -= 1;
-        } else if (foundBranch.rooms.type === "Double") {
+        } else if (room.type === "Double") {
             foundBranch.totalBeds -= 2;
-        } else if (foundBranch.rooms.type === "Triple") {
+        } else if (room.type === "Triple") {
             foundBranch.totalBeds -= 3;
         }
 
-        foundBranch.rooms.id(id).deleteOne();  // or .remove()
+        // Prevent negative beds
+        foundBranch.totalBeds = Math.max(0, foundBranch.totalBeds);
 
+        // 4️⃣ Remove the room
+        room.deleteOne(); // OR foundBranch.rooms.id(id).remove()
+
+        // 5️⃣ Save updated branch
         await foundBranch.save();
 
         return res.status(200).json({
@@ -1025,6 +1040,7 @@ exports.DeleteRoom = async (req, res) => {
         });
     }
 };
+
 exports.UpdateRoom = async (req, res) => {
     try {
 
