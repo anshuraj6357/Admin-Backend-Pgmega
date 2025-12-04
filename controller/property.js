@@ -1,5 +1,7 @@
 
 const Property = require("../model/property")
+const crypto = require("crypto");
+
 const PropertyBranch = require("../model/propertyBranch")
 const Signup = require("../model/user")
 const branchmanager = require("../model/branchmanager")

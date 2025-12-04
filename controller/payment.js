@@ -2,6 +2,15 @@ const Payment = require("../model/payment")
 const PropertyBranch = require("../model/propertyBranch")
 const Expense = require("../model/expenses")
 const Tenant = require("../model/tenants")
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
+
+
+// Initialize Razorpay instance
+const razorpay = new Razorpay({
+    key_id: process.env.razorpay_payment_id,        // Your Razorpay Key ID
+    key_secret: process.env.RZP_KEY_SECRET // Your Razorpay Key Secret
+});
 
 
 exports.getAllbranchPayments = async (req, res) => {
@@ -209,6 +218,62 @@ exports.RevenueDetails = async (req, res) => {
 }
 
 
+
+exports.makingpayment = async (req, res) => {
+
+    try {
+        const { amount, currency = "INR", receipt } = req.body;
+
+        const options = {
+            amount: amount,
+            currency,
+            receipt: receipt || `receipt_${Date.now()}`,
+            payment_capture: 1
+        };
+
+
+        const order = await razorpay.orders.create(options);
+        console.log(order)
+        return res.json({ success: true, order });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "internal server error"
+        })
+
+    }
+}
+
+
+
+exports.verifying = async (req, res) => {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+        const generated_signature = crypto
+            .createHmac("sha256", process.env.RZP_KEY_SECRET)
+            .update(razorpay_order_id + "|" + razorpay_payment_id)
+            .digest("hex");
+
+
+        if (generated_signature === razorpay_signature) {
+            // signature valid -> mark order as paid in DB
+            return res.json({ success: true, message: "Payment verified" });
+        } else {
+            return res.status(400).json({ success: false, message: "Invalid signature" });
+        }
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: "internal server error"
+        })
+
+    }
+}
 
 
 exports.createPayment = async (req, res) => {

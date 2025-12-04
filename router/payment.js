@@ -6,13 +6,17 @@ const {
     getAllbranchPayments,
     createPayment,
     createExpense,
-    RevenueDetails
+    RevenueDetails,
+    makingpayment,
+    verifying
 } = require("../controller/payment");
 
 console.log("hiidc")
 
 router.get("/allpayment", Validate, getAllbranchPayments);
 router.post("/create", Validate, createPayment);
+router.post("/create-order", makingpayment);
+router.post("/verify-payment", verifying);
 router.post("/create/expense", Validate, createExpense);
 router.get("/getdetails", Validate, RevenueDetails);
 
