@@ -4,6 +4,7 @@ const Expense = require("../model/expenses")
 const Tenant = require("../model/tenants")
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
+const Signup = require("../model/user")
 
 
 // Initialize Razorpay instance
@@ -248,34 +249,244 @@ exports.makingpayment = async (req, res) => {
 
 
 
+// exports.verifying = async (req, res) => {
+//     try {
+//         const {
+//             razorpay_order_id,
+//             razorpay_payment_id,
+//             razorpay_signature,
+//             roomId,
+//             amount
+//         }
+//             = req.body;
+
+//         const generated_signature = crypto
+//             .createHmac("sha256", process.env.RZP_KEY_SECRET)
+//             .update(razorpay_order_id + "|" + razorpay_payment_id)
+//             .digest("hex");
+
+
+//         if (generated_signature === razorpay_signature) {
+//             const user = await Signup.findById(req.user._id);
+
+//             if (!user) {
+//                 return res.status(400).json({
+//                     success: false,
+//                     message: "not fount the User"
+//                 })
+//             }
+
+
+
+//             const foundBranch = await PropertyBranch.findOne({ "rooms._id": roomId })
+
+
+//             const room = foundBranch.rooms.id(roomId);
+//             const name = user.username
+//             const roomNumber = room.roomNumber
+//             const Rent = room.Rent; // FIXED
+//             const dues = 0
+//             const advanced = 0
+//             const branch = room.branch
+
+
+
+//             const createpayment = await Payment.create({
+//                 tenantId: req.user._id,
+//                 branch: room.branch,
+//                 mode: "Online",
+//                 tilldatestatus: "paid",
+//                 amountpaid: amount
+
+//             })
+
+
+
+
+
+//             if (!name || !Rent || !roomNumber || !branch) {
+//                 return res.status(400).json({ success: false, message: "Required fields missing" });
+//             }
+
+//             const FoundBranch = await PropertyBranch.findOne({ _id: branch });
+//             if (!FoundBranch) return res.status(400).json({ success: false, message: "Branch not found" });
+
+//             const roomNum = Number(roomNumber);
+//             const foundroom = FoundBranch.rooms.find(r => Number(r.roomNumber) === roomNum);
+//             if (!foundroom) return res.status(400).json({ success: false, message: "Room not found in this branch" });
+
+//             let capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
+//             const tenantsInRoom = await Tenant.countDocuments({ branch: branch, status: "Active", roomNumber: roomNum });
+
+//             if (tenantsInRoom >= capacity) {
+//                 return res.status(400).json({ success: false, message: "Room already full" });
+//             }
+//             if (!room.verified) {
+//                 return res.status(400).json({
+//                     success: false,
+//                     message: "Room is Not Verified"
+//                 })
+//             }
+
+//             const NewTenant = new Tenant({
+//                 branch,
+//                 name,
+//                 Rent,
+//                 dues,
+//                 advanced,
+//                 roomNumber,
+//             });
+//             await NewTenant.save();
+
+//             // Update room status only when it becomes full
+//             if (room.occupied + 1 >= capacity) {
+//                 room.availabilityStatus = "Occupied";
+//                 if (!FoundBranch.occupiedRoom.includes(roomNum)) {
+//                     FoundBranch.occupiedRoom.push(roomNum);
+//                 }
+//             }
+//             room.occupied += 1;
+//             room.vacant = capacity - room.occupied
+//             FoundBranch.totalBeds -= 1;
+
+
+//             await FoundBranch.save();
+
+//             return res.status(200).json({
+//                 success: true,
+//                 message: "Tenant added successfully",
+//                 tenant: NewTenant,
+//                 FoundBranch
+//             });
+
+//             return res.json({ success: true, message: "Payment verified" });
+//         } else {
+//             return res.status(400).json({ success: false, message: "Invalid signature" });
+//         }
+
+//     } catch (error) {
+//         console.log(error);
+//         return res.status(500).json({
+//             success: false,
+//             message: "internal server error"
+//         })
+
+//     }
+// }
 exports.verifying = async (req, res) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        const {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            roomId,
+            amount
+        } = req.body;
+
 
         const generated_signature = crypto
             .createHmac("sha256", process.env.RZP_KEY_SECRET)
             .update(razorpay_order_id + "|" + razorpay_payment_id)
             .digest("hex");
 
-
-        if (generated_signature === razorpay_signature) {
-            // signature valid -> mark order as paid in DB
-            return res.json({ success: true, message: "Payment verified" });
-        } else {
-            return res.status(400).json({ success: false, message: "Invalid signature" });
+        if (generated_signature !== razorpay_signature) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid signature"
+            });
         }
 
+    
+        const user = await Signup.findById(req.user._id);
+        if (!user) {
+            return res.status(400).json({ success: false, message: "User not found" });
+        }
+
+
+        const branchDoc = await PropertyBranch.findOne({ "rooms._id": roomId });
+        if (!branchDoc) return res.status(400).json({ success: false, message: "Branch not found" });
+
+        const room = branchDoc.rooms.id(roomId);
+        if (!room) return res.status(400).json({ success: false, message: "Room not found" });
+
+      
+        const name = user.username;
+        const roomNumber = room.roomNumber;
+        const Rent = room.price;
+        const branchId = room.branch;
+
+        if (!name || !Rent || !roomNumber || !branchId) {
+            return res.status(400).json({ success: false, message: "Required fields missing" });
+        }
+
+       
+        const capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
+        const tenantsInRoom = await Tenant.countDocuments({
+            branch: branchId,
+            status: "Active",
+            roomNumber: Number(roomNumber)
+        });
+
+        if (tenantsInRoom >= capacity) {
+            return res.status(400).json({ success: false, message: "Room already full" });
+        }
+
+        if (!room.verified) {
+            return res.status(400).json({ success: false, message: "Room is not verified" });
+        }
+
+        // 6️⃣ Add Tenant
+        const newTenant = await Tenant.create({
+            branch: branchId,
+            name,
+            Rent,
+            dues: 0,
+            advanced: 0,
+            roomNumber
+        });
+
+       
+        room.occupied += 1;
+        room.vacant = capacity - room.occupied;
+
+        if (room.occupied >= capacity) {
+            room.availabilityStatus = "Occupied";
+            if (!branchDoc.occupiedRoom.includes(Number(roomNumber))) {
+                branchDoc.occupiedRoom.push(Number(roomNumber));
+            }
+        }
+        branchDoc.markModified("rooms");
+        await branchDoc.save();
+
+   
+        await Payment.create({
+            tenantId: req.user._id,
+            branch: branchId,
+            mode: "Online",
+            tilldatestatus: "paid",
+            amountpaid: amount,
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
+        });
+
+
+       
+        return res.status(200).json({
+            success: true,
+            message: "Tenant added successfully + Payment verified",
+            tenant: newTenant,
+            branch: branchDoc
+        });
+
     } catch (error) {
-        console.log(error);
+        console.error(error);
         return res.status(500).json({
             success: false,
-            message: "internal server error"
-        })
-
+            message: "Internal server error"
+        });
     }
-}
-
-
+};
 exports.createPayment = async (req, res) => {
 
     try {
