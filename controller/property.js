@@ -1156,25 +1156,26 @@ exports.getAllPg = async (req, res) => {
     try {
         const branches = await PropertyBranch.find({}, null, { strictPopulate: false })
             .populate({
-                path: "rooms.branch",
+                path: "rooms.branch", // populate branch inside each room if needed
                 model: "PropertyBranch",
-                select: "-rooms -__v -createdAt -updatedAt"  // ⬅ REMOVE heavy fields
+                select: "-rooms -__v -createdAt -updatedAt" // exclude heavy fields
             })
             .exec();
-        console.log(branches)
+
+        // Filter only published & verified rooms
         const allrooms = branches.flatMap(branch =>
-            branch.rooms.filter(room => room.toPublish?.status === true)
+            branch.rooms.filter(room => room.toPublish?.status === true && room.verified === true)
         );
 
         return res.status(200).json({
             success: true,
             message: "Got all PG successfully",
-            foundBranch: allrooms,
+            rooms: allrooms,
         });
 
     } catch (error) {
-        console.log(error);
-        res.status(500).json({
+        console.error(error);
+        return res.status(500).json({
             success: false,
             message: "Internal server error",
             error: error.message,
@@ -1374,7 +1375,6 @@ exports.getalllistedandunlisted = async (req, res) => {
 
 exports.listPgRoom = async (req, res) => {
     try {
-        console.log("Incoming Body:", req.body);
         const { branchId, roomId, comment } = req.body;
 
         if (!branchId || !roomId) {
@@ -1387,66 +1387,50 @@ exports.listPgRoom = async (req, res) => {
         // Find branch
         const branch = await PropertyBranch.findById(branchId);
         if (!branch) {
-            return res.status(404).json({
-                success: false,
-                message: "Branch not found"
-            });
+            return res.status(404).json({ success: false, message: "Branch not found" });
         }
 
         // Find room
         const room = branch.rooms.id(roomId);
         if (!room) {
-            return res.status(404).json({
-                success: false,
-                message: "Room not found"
-            });
+            return res.status(404).json({ success: false, message: "Room not found" });
         }
 
-        let bedCount = 0;
-        if (room.type === "Single") bedCount = 1;
-        else if (room.type === "Double") bedCount = 2;
-        else if (room.type === "Triple") bedCount = 3;
-        if (room.toPublish.status === false) {
-            // Update publish status
+        // Determine bed count
+        const bedCount = room.type === "Single" ? 1 : room.type === "Double" ? 2 : 3;
+
+        if (!room.toPublish.status) {
+            // List room
             room.toPublish.status = true;
-            room.verified = true
-            branch.totalBeds += bedCount
-
-        }
-        else {
+            room.verified = true;
+            branch.totalBeds += bedCount;
+        } else {
+            // Unlist room
             if (!comment) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Please write the reasons"
-                })
+                return res.status(400).json({ success: false, message: "Please write the reasons" });
             }
-            // Update publish status
             room.toPublish.status = false;
             room.comment = comment;
-            branch.totalBeds -= bedCount
-            room.verified = false
+            branch.totalBeds -= bedCount;
+            room.verified = false;
         }
+
         room.toPublish.date = new Date();
-
-
-
-
         await branch.save();
 
         return res.status(200).json({
             success: true,
-            message: "Room published (listed) successfully",
+            message: "Room updated successfully",
             updatedRoom: room
         });
 
     } catch (error) {
-        console.log(error);
-        res.status(500).json({
+        console.error(error);
+        return res.status(500).json({
             success: false,
             message: "Internal server error",
             error: error.message
         });
     }
 };
-
 

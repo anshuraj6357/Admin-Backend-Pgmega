@@ -99,29 +99,39 @@ const signupcontroller = async (req, res) => {
 // --------------------------------------------
 const toggleWishlist = async (req, res) => {
     try {
-        console.log(req.body)
+        const { pgId, roomId } = req.body;
         const userId = req.user._id;
-        const { pgId } = req.body;
 
-        if (!pgId) {
-            return res.status(400).json({ message: "PG ID is required" });
+        // Check if exists
+        const existing = await Wishlist.findOne({ userId, pgId });
+
+        // If exists, REMOVE it
+        if (existing) {
+            await Wishlist.findByIdAndDelete(existing._id);
+            return res.status(200).json({
+                success: true,
+                message: "Removed from wishlist"
+            });
         }
 
-        // check if exists
-        const exists = await Wishlist.findOne({ userId, pgId });
+        // If not exists, ADD it
+        await Wishlist.create({
+            userId,
+            pgId,
+            room: roomId
+        });
 
-        if (exists) {
-            await Wishlist.deleteOne({ userId, pgId });
-            return res.json({ success: true, message: "Removed from wishlist" });
-        }
+        res.status(200).json({
+            success: true,
+            message: "Added to wishlist"
+        });
 
-        // add
-        const newItem = await Wishlist.create({ userId, pgId });
-        return res.json({ success: true, message: "Added to wishlist", data: newItem });
-
-    } catch (error) {
-        console.error("Wishlist toggle error:", error);
-        res.status(500).json({ message: "Server error", error });
+    } catch (err) {
+        console.log("Wishlist toggle error:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong"
+        });
     }
 };
 
@@ -130,20 +140,48 @@ const toggleWishlist = async (req, res) => {
 // GET USER WISHLIST
 //---------------------------------------------
 const getWishlist = async (req, res) => {
-    try {
-        const userId = req.user._id;
+  try {
+    const items = await Wishlist.find({ userId: req.user._id })
+      .populate("pgId");
 
-        const items = await Wishlist.find({ userId });
-        console.log(items)
+    const finalData = [];
 
-        res.json({
-            success: true,
-            data: items,
-        });
-    } catch (error) {
-        console.error("Fetch wishlist error:", error);
-        res.status(500).json({ message: "Server error", error });
+    for (const item of items) {
+      const roomId = item.roomId;
+      const branch = item.pgId; // populated branch
+
+      if (!branch) {
+        console.log("❌ Branch not found for item:", item._id);
+        continue;
+      }
+
+      // find room inside branch.rooms
+      const room = branch.rooms?.find(r => r._id.toString() === roomId);
+
+      if (!room) {
+        console.log("❌ Room not found for branch:", branch._id, "roomId:", roomId);
+        continue;
+      }
+
+      finalData.push({
+        _id: item._id,
+        pgId: branch,
+        room: room
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      items: finalData
+    });
+
+  } catch (error) {
+    console.log("Fetch wishlist error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch wishlist"
+    });
+  }
 };
 
 

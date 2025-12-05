@@ -7,6 +7,9 @@ const wishlistSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    roomId:{
+      type:String,
+    },
     pgId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PropertyBranch",
