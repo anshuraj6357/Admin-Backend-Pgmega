@@ -12,7 +12,7 @@ const {
     AppliedFilters, AppliedAllFilters, DeleteRoom,
     UpdateRoom, AllRooms, getAllBranchManager, changebranchpassword,
     DeleteBranch, DeleteProperty, GetAllBranch,
-    AddRoom, addhotelroom, getdetails,
+    AddRoom, getdetails,
     getalllistedandunlisted, listPgRoom,
     appointBranchManager, GetAllBranchByBranchId
 } = require("../controller/property");
@@ -51,10 +51,7 @@ router.get("/get/:id", getdetails)
 
 
 
-router.post("/addhotelroom"
-    , Validate,
-    upload.fields([{ name: "images", maxCount: 10 }]),
-    addhotelroom)
+
 router.get("/getbranch/bybranchMnager", Validate, GetAllBranchByBranchId)
 router.post("/add", Validate, upload.array("images"), AddBranch);
 router.post("/createbranchmanager/:id", Validate, IsOwner, appointBranchManager)

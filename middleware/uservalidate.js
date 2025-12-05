@@ -4,9 +4,12 @@ const jwt = require("jsonwebtoken");
 exports.Validate = async (req, res, next) => {
     try {
         const token = req.cookies.babbarCookie;
-        console.log("Token:", token);
+        console.log("Token:fggkjnjks", token);
 
         if (!token) {
+
+
+
             return res.status(400).json({
                 success: false,
                 message: "Token not found"

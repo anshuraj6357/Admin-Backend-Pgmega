@@ -5,6 +5,7 @@ const {Validate} = require("../middleware/uservalidate");
 const {
     AddTenants,MarkTenantInactive,AddRentTenants,
     GetTenantByid,GetTenantsByBranch,calculatePending,UpdateTenant,getAllActiveTenant,
+    BookingDetails,
     GetTenantRentHistory,getAllActiveTenantByBranch,GetTenantsByBranchId,getAlltenantbyStatus
 } = require("../controller/tenant");
 
@@ -13,6 +14,7 @@ console.log("hiidc")
 router.post("/create",Validate, AddTenants);
  router.get("/calculatePending/:id", calculatePending);
  router.put("/update/:id", UpdateTenant);
+  router.get("/bookings",Validate, BookingDetails);
 // router.post("/renthistory/:tenantid", GetTenantRentHistory);
 //  router.get("/allactive/:branchId", getAllActiveTenantByBranch);
   router.get("/allstatus/:status",Validate, getAlltenantbyStatus);
