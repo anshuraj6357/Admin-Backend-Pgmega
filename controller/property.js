@@ -1,4 +1,3 @@
-
 const Property = require("../model/property")
 
 const PropertyBranch = require("../model/propertyBranch")
@@ -1170,7 +1169,7 @@ exports.getAllPg = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Got all PG successfully",
-            rooms: allrooms,
+             allrooms,
         });
 
     } catch (error) {
@@ -1433,4 +1432,3 @@ exports.listPgRoom = async (req, res) => {
         });
     }
 };
-
