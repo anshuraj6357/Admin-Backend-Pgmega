@@ -601,6 +601,7 @@ exports.AddRoom = async (req, res) => {
             rentperNight,
             category,
             city,
+            hoteltype,
             renttype,
             flattype
         } = req.body;
