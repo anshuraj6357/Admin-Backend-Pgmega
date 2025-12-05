@@ -1,6 +1,5 @@
 
 const Property = require("../model/property")
-const crypto = require("crypto");
 
 const PropertyBranch = require("../model/propertyBranch")
 const Signup = require("../model/user")
@@ -685,7 +684,7 @@ exports.AddRoom = async (req, res) => {
 
         // Save inside branch.rooms array
         foundBranch.rooms.push(newRoom);
-      
+
 
         await foundBranch.save();
 
@@ -1063,29 +1062,24 @@ exports.DeleteRoom = async (req, res) => {
             });
         }
 
-        // 3️⃣ Update total beds based on room type
-        if (room.type === "Single") {
-            foundBranch.totalBeds -= 1;
-        } else if (room.type === "Double") {
-            foundBranch.totalBeds -= 2;
-        } else if (room.type === "Triple") {
-            foundBranch.totalBeds -= 3;
-        }
-        // Prevent negative beds
+
         foundBranch.totalBeds = Math.max(0, foundBranch.totalBeds);
 
-
-        if (foundBranch.totalBeds > 0) {
-
-            return res.status(400).json({
-                success: false,
-                message: "Room is Occupied by someone"
-            });
-        }
-
-
         // 4️⃣ Remove the room
-        room.deleteOne(); // OR foundBranch.rooms.id(id).remove()
+        room.deleteOne();
+
+
+        if (room.verified) {
+            if (room.type === "Single") {
+                foundBranch.totalBeds -= 1;
+            } else if (room.type === "Double") {
+                foundBranch.totalBeds -= 2;
+            } else if (room.type === "Triple") {
+                foundBranch.totalBeds -= 3;
+            }
+        }
+      
+
 
         // 5️⃣ Save updated branch
         await foundBranch.save();
