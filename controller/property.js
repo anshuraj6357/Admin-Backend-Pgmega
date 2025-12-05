@@ -578,6 +578,12 @@ exports.AddRoom = async (req, res) => {
         }
 
         // Extract fields from req.body
+
+
+
+
+
+
         const {
             branch,
             roomNumber,
@@ -588,13 +594,15 @@ exports.AddRoom = async (req, res) => {
             notAllowed,
             rules,
             furnishedType,
-            floor,
+            allowedFor,
             availabilityStatus,
             rentperday,
             rentperhour,
             rentperNight,
             category,
             city,
+            renttype,
+            flattype
         } = req.body;
 
         // Required fields validation
@@ -606,7 +614,7 @@ exports.AddRoom = async (req, res) => {
         }
 
         // Validate price based on category
-        if ((category === "Pg" || category === "Rented-Room") && !price) {
+        if ((category !== "Hotel") && !price) {
             return res.status(400).json({
                 success: false,
                 message: "Price is required for PG or Rented-Room",
@@ -657,9 +665,17 @@ exports.AddRoom = async (req, res) => {
         const rulesArr = Array.isArray(rules) ? rules : (rules ? [rules] : []);
 
         // Create room object according to schema
+
+
+
         const newRoom = {
             roomNumber,
-            type,
+            allowedFor,
+            renttype: category === "Rented-Room" ? renttype : undefined,
+            flattype: renttype === "Flat-Rent" ? flattype : undefined,
+            roomtype: renttype === "Room-Rent" ? roomtype : undefined,
+            hoteltype: category === "Hotel" ? hoteltype : undefined,
+            type:category==="Pg"?type:undefined,
             price: category !== "Hotel" ? price : undefined,
             rentperday: category === "Hotel" ? rentperday : undefined,
             rentperhour: category === "Hotel" ? rentperhour : undefined,
@@ -669,13 +685,10 @@ exports.AddRoom = async (req, res) => {
             notAllowed: notAllowedArr,
             rules: rulesArr,
             furnishedType: furnishedType || "Semi Furnished",
-            floor: floor || 0,
+          
             availabilityStatus: availabilityStatus || "Available",
             category,
             city: city || foundBranch.city,
-
-
-
             createdBy: req.user._id,
             branch: foundBranch._id,
             roomImages: uploadedImages,
@@ -734,36 +747,6 @@ exports.AllRooms = async (req, res) => {
 
     }
 }
-// exports.getdetails = async (req, res) => {
-
-//     try {
-//         console.log("hii   this is getDetails eroro ")
-//         const id = req.params.id;
-
-//         const roomdetails = await PropertyBranch.findOne({ "rooms._id": id })
-//         if (!roomdetails) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "No Rooms With This Id "
-//             })
-//         }
-//         const room = roomdetails.rooms.id(id);
-//         return res.status(200).json({
-//             success: true,
-//             message: "Rooms details fetched succssfully",
-//             room
-//         })
-
-//     } catch (error) {
-//         console.log(error);
-//         res.status(500).json({
-//             success: false,
-//             message: "Internal server error",
-//             error: error.message,
-//         });
-//     }
-// };
-
 
 exports.AppliedAllFilters = async (req, res) => {
     try {
@@ -848,78 +831,6 @@ exports.AppliedAllFilters = async (req, res) => {
             success: false,
             message: "Server error",
             error: error.message
-        });
-    }
-};
-exports.addhotelroom = async (req, res) => {
-    try {
-        console.log(req.body)
-        const { branchId, rentperday, rentperhour, rentperNight, roomImages, roomNumber, facilities } = req.body;
-        if (!branchId || !rentperday || !rentperhour || !rentperNight) {
-            return res.status(400).json({
-                success: false,
-                message: "Please filled all thedetails carefully"
-            })
-        }
-        const branch = await PropertyBranch.findById(branchId);
-        if (!branch) {
-            return res.status(404).json({
-                success: false,
-                message: "Branch not found"
-            });
-        }
-
-
-
-        const roomExists = branch.rooms.some(room => room.roomNumber === roomNumber);
-        if (roomExists) {
-            return res.status(400).json({
-                success: false,
-                message: "Room number already exists in this branch"
-            });
-        }
-
-        const imag = req.files.images;
-
-        const uploadimage = [];
-
-        for (const file of imag) {
-            const uploadresponse = await Uploadmedia.Uploadmedia(file.path);
-            uploadimage.push(uploadresponse.secure_url);
-        }
-        const newRoom = {
-            roomNumber,
-            rentperday,
-            rentperNight,
-            rentperhour,
-            category: "Room",
-            createdBy: req.user._id,
-            branch: branch._id,
-            facilities,
-            city: branch.city,
-            roomImages: uploadimage
-        };
-
-
-        await branch.rooms.push(newRoom);
-        await branch.save();
-
-        return res.status(200).json({
-            succes: true,
-            message: "Room Added SuccessFully"
-        })
-
-
-
-
-
-    }
-    catch (error) {
-        console.log(error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-            error: error.message,
         });
     }
 };
@@ -1077,7 +988,7 @@ exports.DeleteRoom = async (req, res) => {
                 foundBranch.totalBeds -= 3;
             }
         }
-      
+
 
 
         // 5️⃣ Save updated branch
@@ -1100,8 +1011,6 @@ exports.DeleteRoom = async (req, res) => {
 
 exports.UpdateRoom = async (req, res) => {
     try {
-
-
         const { Id } = req.params;
         console.log(req.body)
         const { roomNumber, type, price, facilities, rentperday, rentperhour, rentperNight } = req.body;
@@ -1169,7 +1078,7 @@ exports.getAllPg = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Got all PG successfully",
-             allrooms,
+            allrooms,
         });
 
     } catch (error) {

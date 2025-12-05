@@ -41,7 +41,7 @@ app.use(
 
 // ❗ REMOVE ALL app.options() — Express doesn't need it
 // app.options("*", cors());  ❌ DELETE
-// app.options("/.*", cors()); ❌ DELETE
+//  app.options("/.*", cors());
 
 // Routes
 app.use("/api/v1/user", userRouter);

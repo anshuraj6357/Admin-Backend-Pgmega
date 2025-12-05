@@ -11,8 +11,37 @@ const RoomSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
-     vacant: {
-        type: Number,
+    hoteltype: {
+        type: String,
+        enum: ["Standard-Single",
+            "Standard-Double",
+            "Twin-Room",
+            "Triple-Room",
+            "Family-Room",
+            "Deluxe-Room",
+            "Super-Deluxe-Room",
+            "Executive-Room",
+            "Suite"
+        ],
+    },
+    flattype: {
+        type: String,
+        enum: [
+            "1Rk",
+            "1BHK",
+            "2BHK",
+            "3BHK",
+            "4BHK",
+            "5BHK",
+        ],
+    },
+    roomtype: {
+        type: String,
+        enum: ["Single", "Double", "Tripe"]
+    },
+    renttype: {
+        type: String,
+        enum: ["Flat-Rent", "Room-Rent"]
     },
     type: {
         type: String,
@@ -78,7 +107,7 @@ const RoomSchema = new mongoose.Schema({
         enum: ["Fully Furnished", "Semi Furnished", "Unfurnished"],
     },
 
-    
+
 
     availabilityStatus: {
         type: String,
@@ -108,7 +137,7 @@ const RoomSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "PropertyBranch"
     },
-  
+
 
     roomImages: [
         {

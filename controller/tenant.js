@@ -423,6 +423,32 @@ exports.UpdateTenant = async (req, res) => {
 };
 
 
+exports.BookingDetails=async(req,res)=>{
+    try {
+
+        const userdetails=await Payment.find({tenantId:req.user._id})
+        if (!userdetails){
+            return res.status(400).json({
+                succes:false,
+                message:"not booked my room "
+            })
+        }
+        return res.status(200).json({
+            success:true,
+            message:"all payemnt of your status",
+            userdetails
+        })
+        
+    }catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error",
+            error: error.message,
+        });
+    }
+};
+
 exports.GetTenantRentHistory = async (req, res) => {
 
     try {
