@@ -176,6 +176,10 @@ const propertyBranchSchema = new mongoose.Schema({
     landmark: { type: String },
     state: { type: String },
     pincode: { type: Number },
+    totelhotelroom: { type: Number, default: 0 },
+    occupiedhotelroom: { type: Number, default: 0 },
+    occupiedRentalRoom: { type: Number, default: 0 },
+    totalrentalRoom: { type: Number, default: 0 },
     // GeoJSON location (recommended)
     location: {
         type: {
