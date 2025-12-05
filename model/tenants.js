@@ -9,11 +9,11 @@ const tenantSchema = new mongoose.Schema({
     branchmanager: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "branchmanager",
-        required: true
+       
     },
     contactNumber: {
         type: Number,
-        required: true,
+       
         // unique: true
     },
     lastupdated: {
@@ -70,14 +70,13 @@ const tenantSchema = new mongoose.Schema({
 
     idProof: {
         type: String,
-        // unique: true,
-        required: true
+     
     },
 
     idProofType: {
         type: String,
         enum: ["Aadhar-Card", "Voter-Id-Card"],
-        required: true
+   
     },
     status: {
         type: String,

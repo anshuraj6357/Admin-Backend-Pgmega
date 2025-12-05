@@ -36,15 +36,15 @@ exports.AddTenants = async (req, res) => {
         if (!room) return res.status(400).json({ success: false, message: "Room not found in this branch" });
 
         let capacity = room.type === "Double" ? 2 : room.type === "Triple" ? 3 : 1;
-        const tenantsInRoom = await Tenant.countDocuments({ branch: branch,status:"Active", roomNumber: roomNum });
+        const tenantsInRoom = await Tenant.countDocuments({ branch: branch, status: "Active", roomNumber: roomNum });
 
         if (tenantsInRoom >= capacity) {
             return res.status(400).json({ success: false, message: "Room already full" });
         }
-        if(!room.verified){
+        if (!room.verified) {
             return res.status(400).json({
-                success:false,
-                message:"Room is Not Verified"
+                success: false,
+                message: "Room is Not Verified"
             })
         }
 
@@ -73,8 +73,8 @@ exports.AddTenants = async (req, res) => {
             }
         }
         room.occupied += 1;
-        FoundBranch.totalBeds-=1;
-
+        room.vacant = capacity - room.occupied
+       
 
         await FoundBranch.save();
 
@@ -94,6 +94,7 @@ exports.AddTenants = async (req, res) => {
         });
     }
 };
+
 
 exports.MarkTenantInactive = async (req, res) => {
     try {
@@ -132,9 +133,8 @@ exports.MarkTenantInactive = async (req, res) => {
             if (room.occupied === 0) {
                 branch.occupiedRoom = branch.occupiedRoom.filter(rn => rn !== roomNum);
             }
-            branch.totalBeds+=1;
+           
 
-          
             await branch.save();
             await foundedTenant.save();
 

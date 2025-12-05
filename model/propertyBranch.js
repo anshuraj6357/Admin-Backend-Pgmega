@@ -11,6 +11,9 @@ const RoomSchema = new mongoose.Schema({
         type: Number,
         default: 0,
     },
+     vacant: {
+        type: Number,
+    },
     type: {
         type: String,
         enum: ["Single", "Double", "Triple"],
@@ -75,10 +78,7 @@ const RoomSchema = new mongoose.Schema({
         enum: ["Fully Furnished", "Semi Furnished", "Unfurnished"],
     },
 
-    floor: {
-        type: Number,
-        default: 0
-    },
+    
 
     availabilityStatus: {
         type: String,
@@ -108,6 +108,7 @@ const RoomSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "PropertyBranch"
     },
+  
 
     roomImages: [
         {
