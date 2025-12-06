@@ -251,6 +251,10 @@ exports.makingpayment = async (req, res) => {
 
 exports.verifying = async (req, res) => {
     try {
+
+        console.log("📥 Incoming Body:", req.body);
+        console.log("👤 Logged-in user:", req.user);
+
         const {
             razorpay_order_id,
             razorpay_payment_id,
@@ -259,48 +263,63 @@ exports.verifying = async (req, res) => {
             amount
         } = req.body;
 
-        let newTenant = null; // ✅ FIX: define globally so return works
+        let newTenant = null;
 
+        // SIGNATURE VERIFY
         const generated_signature = crypto
             .createHmac("sha256", process.env.RZP_KEY_SECRET)
             .update(razorpay_order_id + "|" + razorpay_payment_id)
             .digest("hex");
-
         if (generated_signature !== razorpay_signature) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid signature"
-            });
+            return res.status(400).json({ success: false, message: "Invalid signature" });
         }
+
 
         const user = await Signup.findById(req.user._id);
         if (!user) {
             return res.status(400).json({ success: false, message: "User not found" });
         }
 
+
         const branchDoc = await PropertyBranch.findOne({ "rooms._id": roomId });
-        if (!branchDoc) return res.status(400).json({ success: false, message: "Branch not found" });
+
+        if (!branchDoc) {
+
+            return res.status(400).json({ success: false, message: "Branch not found" });
+        }
+
 
         const room = branchDoc.rooms.id(roomId);
-        if (!room) return res.status(400).json({ success: false, message: "Room not found" });
+
+        if (!room) {
+            console.log("❌ Room not found");
+            return res.status(400).json({ success: false, message: "Room not found" });
+        }
+
 
         const name = user.username;
         const roomNumber = room.roomNumber;
-        const Rent = room.price || room.rentperday || room.rentperNight || room.rentperhour; // Hotel case
+        const Rent = room.price || room.rentperday || room.rentperNight || room.rentperhour;
         const branchId = room.branch;
 
+
         if (!name || !Rent || !roomNumber || !branchId) {
+            console.log("❌ Required fields missing");
             return res.status(400).json({ success: false, message: "Required fields missing" });
         }
 
-    
+
         if (room.category === "Pg") {
+
+            console.log("🏘 PG ROOM SELECTED");
 
             const capacity = room.type === "Double"
                 ? 2
                 : room.type === "Triple"
                     ? 3
                     : 1;
+
+            console.log("👥 Calculated Capacity:", capacity);
 
             const tenantsInRoom = await Tenant.countDocuments({
                 branch: branchId,
@@ -309,10 +328,12 @@ exports.verifying = async (req, res) => {
             });
 
             if (tenantsInRoom >= capacity) {
+
                 return res.status(400).json({ success: false, message: "Room already full" });
             }
 
             if (!room.verified) {
+
                 return res.status(400).json({ success: false, message: "Room is not verified" });
             }
 
@@ -327,18 +348,10 @@ exports.verifying = async (req, res) => {
 
             room.occupied += 1;
             room.vacant = capacity - room.occupied;
-
-            if (room.occupied >= capacity) {
-                 room.availabilityStatus = "Occupied";
-                if (!branchDoc.occupiedRoom.includes(Number(roomNumber))) {
-                    branchDoc.occupiedRoom.push(Number(roomNumber));
-                }
-            }
         }
 
-     
-        if ((room.category === "Hotel"||room.category === "Rented-Room") && room.occupied === 0) {
 
+        if ((room.category === "Hotel" || room.category === "Rented-Room") && room.occupied === 0) {
             if (!room.verified) {
                 return res.status(400).json({ success: false, message: "Room is not verified" });
             }
@@ -351,17 +364,15 @@ exports.verifying = async (req, res) => {
                 advanced: 0,
                 roomNumber
             });
-
             room.occupied = 1;
             room.vacant = 0;
             room.availabilityStatus = "Occupied";
         }
-        
 
+        // SAVE CHANGES
         branchDoc.markModified("rooms");
         await branchDoc.save();
-
-       
+        // SAVE PAYMENT
         await Payment.create({
             tenantId: req.user._id,
             branch: branchId,
@@ -379,8 +390,8 @@ exports.verifying = async (req, res) => {
             tenant: newTenant,
             branch: branchDoc
         });
+
     } catch (error) {
-        console.error(error);
         return res.status(500).json({
             success: false,
             message: "Internal server error",
