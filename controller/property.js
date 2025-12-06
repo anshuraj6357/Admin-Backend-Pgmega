@@ -601,7 +601,7 @@ exports.AddRoom = async (req, res) => {
             city,
             renttype,
             flattype,
-            hoteltype
+            hoteltype,
         } = req.body;
 
         // Required fields validation

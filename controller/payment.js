@@ -248,7 +248,6 @@ exports.makingpayment = async (req, res) => {
 }
 
 
-
 exports.verifying = async (req, res) => {
     try {
 
@@ -270,56 +269,45 @@ exports.verifying = async (req, res) => {
             .createHmac("sha256", process.env.RZP_KEY_SECRET)
             .update(razorpay_order_id + "|" + razorpay_payment_id)
             .digest("hex");
+
         if (generated_signature !== razorpay_signature) {
             return res.status(400).json({ success: false, message: "Invalid signature" });
         }
 
-
+        // USER
         const user = await Signup.findById(req.user._id);
-        if (!user) {
-            return res.status(400).json({ success: false, message: "User not found" });
-        }
+        if (!user) return res.status(400).json({ success: false, message: "User not found" });
 
-
+        // BRANCH
         const branchDoc = await PropertyBranch.findOne({ "rooms._id": roomId });
-
-        if (!branchDoc) {
-
-            return res.status(400).json({ success: false, message: "Branch not found" });
-        }
-
+        if (!branchDoc) return res.status(400).json({ success: false, message: "Branch not found" });
 
         const room = branchDoc.rooms.id(roomId);
+        if (!room) return res.status(400).json({ success: false, message: "Room not found" });
 
-        if (!room) {
-            console.log("❌ Room not found");
-            return res.status(400).json({ success: false, message: "Room not found" });
-        }
-
-
+        // VALUES
         const name = user.username;
         const roomNumber = room.roomNumber;
         const Rent = room.price || room.rentperday || room.rentperNight || room.rentperhour;
         const branchId = room.branch;
 
-
         if (!name || !Rent || !roomNumber || !branchId) {
-            console.log("❌ Required fields missing");
             return res.status(400).json({ success: false, message: "Required fields missing" });
         }
 
-
+        /* -------------------------------------------------
+         🏘 PG CATEGORY HANDLING
+        ------------------------------------------------- */
         if (room.category === "Pg") {
 
             console.log("🏘 PG ROOM SELECTED");
 
-            const capacity = room.type === "Double"
-                ? 2
-                : room.type === "Triple"
-                    ? 3
-                    : 1;
+            const capacity =
+                room.type === "Double" ? 2 :
+                room.type === "Triple" ? 3 :
+                1;
 
-            console.log("👥 Calculated Capacity:", capacity);
+            console.log("👥 Capacity:", capacity);
 
             const tenantsInRoom = await Tenant.countDocuments({
                 branch: branchId,
@@ -328,15 +316,14 @@ exports.verifying = async (req, res) => {
             });
 
             if (tenantsInRoom >= capacity) {
-
+                room.availabilityStatus = "Occupied";
                 return res.status(400).json({ success: false, message: "Room already full" });
             }
 
-            if (!room.verified) {
-
+            if (!room.verified)
                 return res.status(400).json({ success: false, message: "Room is not verified" });
-            }
 
+            // CREATE TENANT
             newTenant = await Tenant.create({
                 branch: branchId,
                 name,
@@ -347,14 +334,25 @@ exports.verifying = async (req, res) => {
             });
 
             room.occupied += 1;
-            room.vacant = capacity - room.occupied;
+            room.vacant = Math.max(0, capacity - (tenantsInRoom + 1));
+
+            if (tenantsInRoom + 1 >= capacity) room.availabilityStatus = "Occupied";
         }
 
 
-        if ((room.category === "Hotel" || room.category === "Rented-Room") && room.occupied === 0) {
-            if (!room.verified) {
+        /* -------------------------------------------------
+         🏨 HOTEL & RENTED ROOM HANDLING  
+         - Only 1 person allowed
+         ------------------------------------------------- */
+        else if (room.category === "Hotel" || room.category === "Rented-Room") {
+
+            const capacity = 1; // hotel / rented room → ONLY one person allowed
+
+            if (room.occupied >= capacity)
+                return res.status(400).json({ success: false, message: "Room already full" });
+
+            if (!room.verified)
                 return res.status(400).json({ success: false, message: "Room is not verified" });
-            }
 
             newTenant = await Tenant.create({
                 branch: branchId,
@@ -364,14 +362,17 @@ exports.verifying = async (req, res) => {
                 advanced: 0,
                 roomNumber
             });
+
             room.occupied = 1;
             room.vacant = 0;
             room.availabilityStatus = "Occupied";
         }
 
+        /* ------------------------------------------------- */
         // SAVE CHANGES
         branchDoc.markModified("rooms");
         await branchDoc.save();
+
         // SAVE PAYMENT
         await Payment.create({
             tenantId: req.user._id,
