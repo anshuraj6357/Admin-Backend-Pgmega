@@ -563,9 +563,7 @@ exports.appointBranchManager = async (req, res) => {
 };
 exports.AddRoom = async (req, res) => {
     try {
-        console.log("Adding Room...");
-        console.log("BODY => ", req.body);
-        console.log("FILES => ", req.files);
+
 
         const imageFiles = req.files?.images;
 
@@ -604,7 +602,8 @@ exports.AddRoom = async (req, res) => {
             hoteltype,
             roomtype,
             renttype,
-            flattype
+            flattype,
+            hoteltype
         } = req.body;
 
         // Required fields validation
@@ -677,7 +676,7 @@ exports.AddRoom = async (req, res) => {
             flattype: renttype === "Flat-Rent" ? flattype : undefined,
             roomtype: renttype === "Room-Rent" ? roomtype : undefined,
             hoteltype: category === "Hotel" ? hoteltype : undefined,
-            type:category==="Pg"?type:undefined,
+            type: category === "Pg" ? type : undefined,
             price: category !== "Hotel" ? price : undefined,
             rentperday: category === "Hotel" ? rentperday : undefined,
             rentperhour: category === "Hotel" ? rentperhour : undefined,
@@ -687,7 +686,7 @@ exports.AddRoom = async (req, res) => {
             notAllowed: notAllowedArr,
             rules: rulesArr,
             furnishedType: furnishedType || "Semi Furnished",
-          
+            vacant: type === "Single" ? 1 : type === "Double" ? 2 : type === "Triple" ? 3 : 1,
             availabilityStatus: availabilityStatus || "Available",
             category,
             city: city || foundBranch.city,
@@ -1294,38 +1293,94 @@ exports.listPgRoom = async (req, res) => {
             });
         }
 
-        // Find branch
+
         const branch = await PropertyBranch.findById(branchId);
         if (!branch) {
             return res.status(404).json({ success: false, message: "Branch not found" });
         }
 
-        // Find room
+
         const room = branch.rooms.id(roomId);
         if (!room) {
             return res.status(404).json({ success: false, message: "Room not found" });
         }
 
-        // Determine bed count
-        const bedCount = room.type === "Single" ? 1 : room.type === "Double" ? 2 : 3;
 
-        if (!room.toPublish.status) {
-            // List room
-            room.toPublish.status = true;
-            room.verified = true;
-            branch.totalBeds += bedCount;
-        } else {
-            // Unlist room
-            if (!comment) {
-                return res.status(400).json({ success: false, message: "Please write the reasons" });
+        if (room.category === "Pg") {
+            const bedCount = room.type === "Single" ? 1 :
+                room.type === "Double" ? 2 : 3;
+
+            if (!room.toPublish.status) {
+
+                room.toPublish.status = true;
+                room.verified = true;
+                room.vacant = bedCount;
+
+                branch.totalBeds += bedCount;
+            } else {
+
+                if (!comment) {
+                    return res.status(400).json({ success: false, message: "Please write the reasons" });
+                }
+
+                room.comment = comment;
+                room.toPublish.status = false;
+                room.verified = false;
+                room.vacant = 0
+
+
+
+                branch.totalBeds = Math.max(0, branch.totalBeds - bedCount);
             }
-            room.toPublish.status = false;
-            room.comment = comment;
-            branch.totalBeds -= bedCount;
-            room.verified = false;
         }
 
+
+        if (room.category === "Hotel") {
+            if (!room.toPublish.status) {
+                room.toPublish.status = true;
+                room.verified = true;
+                room.vacant=1;
+
+                branch.totelhotelroom += 1;
+            } else {
+                if (!comment) {
+                    return res.status(400).json({ success: false, message: "Please write the reasons" });
+                }
+
+                room.comment = comment;
+                room.toPublish.status = false;
+                room.verified = false;
+                room.vacant=0;
+
+                branch.totelhotelroom = Math.max(0, branch.totelhotelroom - 1);
+            }
+        }
+
+
+        if (room.category === "Rented-Room") {
+            if (!room.toPublish.status) {
+                room.toPublish.status = true;
+                room.verified = true;
+                room.vacant=1;
+
+                branch.totalrentalRoom += 1;
+            } else {
+                if (!comment) {
+                    return res.status(400).json({ success: false, message: "Please write the reasons" });
+                }
+
+                room.comment = comment;
+                room.toPublish.status = false;
+                room.verified = false;
+
+                room.vacant=0;
+                branch.totalrentalRoom = Math.max(0, branch.totalrentalRoom - 1);
+            }
+        }
+
+        // Save publish date
         room.toPublish.date = new Date();
+
         await branch.save();
 
         return res.status(200).json({
